@@ -174,10 +174,10 @@ class JWTService:
 
     def generate_token(self, username, role):
         access_exp = datetime.utcnow() + timedelta(hours=2)
-        access_payload = {"username": username, "role": role, "exp": access_exp, "type": "access"}
+        access_payload = {"sub": username, "role": role, "exp": access_exp, "type": "access"}
         access_token = pyjwt.encode(access_payload, self.pem_private_key, algorithm=self.algorithm)
         refresh_exp = datetime.utcnow() + timedelta(days=7)
-        refresh_payload = {"username": username, "exp": refresh_exp, "type": "refresh"}
+        refresh_payload = {"sub": username, "exp": refresh_exp, "type": "refresh"}  # 同理修改
         refresh_token = pyjwt.encode(refresh_payload, self.pem_private_key, algorithm=self.algorithm)
         return {"access_token": access_token, "refresh_token": refresh_token}
 
