@@ -5,12 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="079d9f77-9221-4b91-9efa-da6d937ebb2d" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/JWT_Utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RSA_crypto.py" beforeDir="false" afterPath="$PROJECT_DIR$/RSA_crypto.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/private_key.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/public_key.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/register.py" beforeDir="false" afterPath="$PROJECT_DIR$/register.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
