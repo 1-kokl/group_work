@@ -528,5 +528,5 @@ if __name__ == "__main__":
     flask_thread.daemon = True  # 主程序退出时，Flask线程自动结束
     flask_thread.start()
     
-    # 启动命令行菜单（图一效果）
+    # 启动命令行菜单
     cli_menu()
