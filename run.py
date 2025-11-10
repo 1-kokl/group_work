@@ -1,7 +1,7 @@
 import threading
 import time
-from flask_new import app, run_flask, cli_menu, init_db, rsa_service, jwt_service
-
+from flask_new import app, run_flask, cli_menu, rsa_service, jwt_service, Base, engine
+from flask_cors import CORS
 def main():
     """主函数：初始化服务并启动多线程运行Flask和命令行菜单"""
     try:
@@ -17,8 +17,9 @@ def main():
         # 初始化数据库
         print("初始化数据库...")
         with app.app_context():
-            init_db()
-        
+            Base.metadata.create_all(bind=engine)  # 直接创建数据库表
+            print("数据库初始化完成")
+
         # 启动Flask服务线程
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
