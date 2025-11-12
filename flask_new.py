@@ -17,7 +17,210 @@ import time
 import string
 import os
 import threading  # 新增：用于多线程同时运行Flask和命令行菜单
+from functools import wraps
+from flask import request, abort
+import redis
+from datetime import datetime, timedelta
+import ipaddress
 
+# 在现有路由基础上添加验证装饰器
+@app.route("/api/v1/user/register", methods=["POST"])
+@validate_json(REGISTER_SCHEMA)
+def user_register():
+    user_data = request.get_json()
+    result = register_service(user_data)
+    return jsonify(result), result["code"]
+
+@app.route("/api/v1/user/login", methods=["POST"])
+@validate_json(LOGIN_SCHEMA)
+def user_login():
+    user_data = request.get_json()
+    result = login_service(user_data)
+    return jsonify(result), result["code"]
+
+# ========== 安全中间件类 ==========
+class SecurityMiddleware:
+    def __init__(self, app=None):
+        self.app = app
+        self.redis_client = None
+        if app:
+            self.init_app(app)
+
+    def init_app(self, app):
+        """初始化安全中间件"""
+        # 初始化Redis连接（用于限流）
+        try:
+            self.redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            app.logger.info("✅ Redis连接成功")
+        except Exception as e:
+            app.logger.warning(f"❌ Redis连接失败，使用内存限流: {e}")
+            self.redis_client = None
+
+        # 注册中间件
+        app.before_request(self._rate_limit_middleware)
+        app.before_request(self._input_validation_middleware)
+        app.after_request(self._security_headers_middleware)
+
+    def _rate_limit_middleware(self):
+        """频率限制中间件"""
+        if request.endpoint in ['user_login', 'user_register']:
+            identifier = request.remote_addr  # 基于IP限流
+
+            # 登录接口更严格：5次/分钟
+            if request.endpoint == 'user_login':
+                key = f"rate_limit:login:{identifier}"
+                limit = 5
+                window = 60  # 1分钟
+            else:
+                # 注册接口：10次/小时
+                key = f"rate_limit:register:{identifier}"
+                limit = 10
+                window = 3600  # 1小时
+
+            current = self._get_request_count(key, window)
+            if current >= limit:
+                app.logger.warning(f"频率限制触发: {identifier} -> {request.endpoint}")
+                return jsonify({
+                    "code": 429,
+                    "msg": "请求过于频繁，请稍后再试"
+                }), 429
+
+    def _get_request_count(self, key, window):
+        """获取当前窗口内的请求计数"""
+        current_time = datetime.now().timestamp()
+
+        if self.redis_client:
+            # 使用Redis
+            pipeline = self.redis_client.pipeline()
+            pipeline.zremrangebyscore(key, 0, current_time - window)
+            pipeline.zadd(key, {str(current_time): current_time})
+            pipeline.zcard(key)
+            pipeline.expire(key, window)
+            results = pipeline.execute()
+            return results[2]
+        else:
+            # 内存存储（简化版）
+            if not hasattr(self, '_rate_limit_data'):
+                self._rate_limit_data = {}
+
+            if key not in self._rate_limit_data:
+                self._rate_limit_data[key] = []
+
+            # 清理过期记录
+            self._rate_limit_data[key] = [
+                t for t in self._rate_limit_data[key]
+                if t > current_time - window
+            ]
+
+            # 添加当前请求
+            self._rate_limit_data[key].append(current_time)
+            return len(self._rate_limit_data[key])
+
+    def _input_validation_middleware(self):
+        """输入验证中间件"""
+        if request.method in ['POST', 'PUT']:
+            # 检查Content-Type
+            if not request.is_json:
+                return jsonify({
+                    "code": 400,
+                    "msg": "请求必须为JSON格式"
+                }), 400
+
+            # 防止JSON炸弹
+            if len(request.get_data()) > 1024 * 1024:  # 1MB限制
+                return jsonify({
+                    "code": 413,
+                    "msg": "请求体过大"
+                }), 413
+
+            # SQL注入防护
+            data = request.get_json(silent=True) or {}
+            self._sanitize_input(data)
+
+    def _sanitize_input(self, data):
+        """输入清洗"""
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, str):
+                    # 移除潜在的SQL注入字符
+                    data[key] = re.sub(r"[\;\-\-\"]", "", value)
+                    # 限制长度
+                    if len(data[key]) > 255:
+                        data[key] = data[key][:255]
+
+    def _security_headers_middleware(self, response):
+        """安全头设置中间件"""
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers['Content-Security-Policy'] = "default-src 'self'"
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # 移除敏感头信息
+        if 'Server' in response.headers:
+            del response.headers['Server']
+
+        return response
+
+
+# ========== 参数验证装饰器 ==========
+def validate_json(schema):
+    """JSON参数验证装饰器"""
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            data = request.get_json(silent=True)
+            if not data:
+                return jsonify({"code": 400, "msg": "无效的JSON数据"}), 400
+
+            # 简单的模式验证
+            for field, rules in schema.items():
+                if rules.get('required', False) and field not in data:
+                    return jsonify({
+                        "code": 400,
+                        "msg": f"缺少必填字段: {field}"
+                    }), 400
+
+                if field in data:
+                    value = data[field]
+                    if 'type' in rules and not isinstance(value, rules['type']):
+                        return jsonify({
+                            "code": 400,
+                            "msg": f"字段 {field} 类型错误"
+                        }), 400
+
+                    if 'min_length' in rules and len(str(value)) < rules['min_length']:
+                        return jsonify({
+                            "code": 400,
+                            "msg": f"字段 {field} 长度过短"
+                        }), 400
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
+# 定义验证模式
+REGISTER_SCHEMA = {
+    "username": {"required": True, "type": str, "min_length": 6},
+    "password": {"required": True, "type": str, "min_length": 8},
+    "phone": {"required": True, "type": str, "min_length": 11}
+}
+
+LOGIN_SCHEMA = {
+    "username": {"required": True, "type": str},
+    "password": {"required": True, "type": str}
+}
 # ========== 1. Flask应用初始化 ==========
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -36,6 +239,7 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 # ========== 3. RSA加密工具类 ==========
 class RSAServices:
@@ -141,8 +345,10 @@ class RSAServices:
         decrypted_bytes = long_to_bytes(m)
         return decrypted_bytes.decode('utf-8')
 
+
 rsa_service = RSAServices()
 rsa_service.load_keys()
+
 
 # ========== 4. JWT工具类 ==========
 class JWTService:
@@ -196,7 +402,9 @@ class JWTService:
         username = jwt_data["sub"]
         return DAO().get_user_by_username(username)
 
+
 jwt_service = JWTService()
+
 
 # ========== 5. 数据模型 ==========
 class User(Base):
@@ -214,6 +422,7 @@ class User(Base):
     evaluations = relationship("Evaluation", back_populates="user")
     purchases = relationship("Purchase", back_populates="user")
 
+
 class Address(Base):
     __tablename__ = "addresses"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -223,12 +432,14 @@ class Address(Base):
     username = Column(String(50), ForeignKey("users.username"), nullable=False)
     user = relationship("User", back_populates="addresses")
 
+
 class CommodityCategory(Base):
     __tablename__ = "commodity_categories"
     category_id = Column(Integer, primary_key=True, autoincrement=True)
     category_name = Column(String(50), nullable=False)
     parent_id = Column(Integer, default=0)
     commodities = relationship("Commodity", back_populates="category")
+
 
 class Manufacturer(Base):
     __tablename__ = "manufacturers"
@@ -237,6 +448,7 @@ class Manufacturer(Base):
     address = Column(String(200))
     phone = Column(String(20))
     commodities = relationship("Commodity", back_populates="manufacturer")
+
 
 class Commodity(Base):
     __tablename__ = "commodities"
@@ -253,6 +465,7 @@ class Commodity(Base):
     evaluations = relationship("Evaluation", back_populates="commodity")
     purchases = relationship("Purchase", back_populates="commodity")
 
+
 class Cart(Base):
     __tablename__ = "carts"
     username = Column(String(50), ForeignKey("users.username"), primary_key=True)
@@ -260,6 +473,7 @@ class Cart(Base):
     item_count = Column(Integer, default=0)
     user = relationship("User", back_populates="cart")
     items = relationship("CartItem", back_populates="cart")
+
 
 class CartItem(Base):
     __tablename__ = "cart_items"
@@ -269,6 +483,7 @@ class CartItem(Base):
     selected = Column(Boolean, default=True)
     cart = relationship("Cart", back_populates="items")
     commodity = relationship("Commodity", back_populates="cart_items")
+
 
 class Order(Base):
     __tablename__ = "orders"
@@ -281,6 +496,7 @@ class Order(Base):
     items = relationship("OrderItem", back_populates="order")
     evaluations = relationship("Evaluation", back_populates="order")
 
+
 class OrderItem(Base):
     __tablename__ = "order_items"
     order_number = Column(String(50), ForeignKey("orders.order_number"), primary_key=True)
@@ -289,6 +505,7 @@ class OrderItem(Base):
     price_at_purchase = Column(Float, nullable=False)
     order = relationship("Order", back_populates="items")
     commodity = relationship("Commodity", back_populates="order_items")
+
 
 class Evaluation(Base):
     __tablename__ = "evaluations"
@@ -303,6 +520,7 @@ class Evaluation(Base):
     order = relationship("Order", back_populates="evaluations")
     commodity = relationship("Commodity", back_populates="evaluations")
 
+
 class Purchase(Base):
     __tablename__ = "purchases"
     username = Column(String(50), ForeignKey("users.username"), primary_key=True)
@@ -310,6 +528,7 @@ class Purchase(Base):
     purchase_time = Column(DateTime, default=datetime.now, primary_key=True)
     user = relationship("User", back_populates="purchases")
     commodity = relationship("Commodity", back_populates="purchases")
+
 
 # ========== 6. DAO数据访问层 ==========
 class DAO:
@@ -350,9 +569,11 @@ class DAO:
             return True
         return False
 
+
 # ========== 7. 业务工具函数 ==========
 LOCAL_DOC = "user_registry.txt"
 SENSITIVE_FILES = [LOCAL_DOC, "private_key.txt", "public_key.txt"]
+
 
 def ensure_gitignore():
     gitignore_path = ".gitignore"
@@ -366,12 +587,14 @@ def ensure_gitignore():
                 f.write(f"\n# 敏感文件（自动添加）\n{file}")
     app.logger.info(f"✅ .gitignore已配置敏感文件：{SENSITIVE_FILES}")
 
+
 def check_username(username):
     if not 6 <= len(username) <= 20:
         return False, "❌ 用户名长度需在6-20位之间"
     if not re.match(r'^[a-zA-Z0-9_]+$', username):
         return False, "❌ 用户名仅支持字母、数字、下划线"
     return True, "✅ 用户名合法"
+
 
 def register_service(user_data):
     username = user_data.get("username")
@@ -381,7 +604,8 @@ def register_service(user_data):
     username_valid, username_msg = check_username(username)
     if not username_valid:
         return {"code": 400, "msg": username_msg}
-    if len(password) < 8 or not (any(c.isupper() for c in password) and any(c.islower() for c in password) and any(c.isdigit() for c in password) and any(c in "!@#$%^&*()" for c in password)):
+    if len(password) < 8 or not (any(c.isupper() for c in password) and any(c.islower() for c in password) and any(
+            c.isdigit() for c in password) and any(c in "!@#$%^&*()" for c in password)):
         return {"code": 400, "msg": "❌ 密码需8位以上，含大小写、数字、特殊字符"}
     if not re.match(r'^1[3-9]\d{9}$', phone):
         return {"code": 400, "msg": "❌ 手机号需为13-19开头的11位数字"}
@@ -408,6 +632,7 @@ def register_service(user_data):
         f.write(f"{timestamp}|{username}|{password_hash}|{encrypted_phone}\n")
     app.logger.info(f"✅ 用户{username}注册成功")
     return {"code": 200, "msg": "✅ 注册成功"}
+
 
 def login_service(user_data):
     username = user_data.get("username")
@@ -441,6 +666,7 @@ def login_service(user_data):
         "data": {"access_token": tokens["access_token"], "role": user.role}
     }
 
+
 # ========== 8. 命令行交互菜单（恢复图一功能） ==========
 def cli_menu():
     """恢复原代码的命令行交互菜单"""
@@ -450,7 +676,7 @@ def cli_menu():
         print("2. 用户登录（生成JWT令牌+角色权限展示）")
         print("3. 退出系统")
         choice = input("请选择操作（1/2/3）：")
-        
+
         if choice == "1":
             # 用户注册（终端输入）
             username = input("请输入用户名：")
@@ -459,7 +685,7 @@ def cli_menu():
             user_data = {"username": username, "password": password, "phone": phone}
             result = register_service(user_data)
             print(result["msg"])
-        
+
         elif choice == "2":
             # 用户登录（终端输入）
             username = input("请输入用户名：")
@@ -470,13 +696,14 @@ def cli_menu():
             if result["code"] == 200:
                 print(f"JWT令牌：{result['data']['access_token']}")
                 print(f"用户角色：{result['data']['role']}")
-        
+
         elif choice == "3":
             print("退出系统")
             break
-        
+
         else:
             print("❌ 无效选项，请重新选择")
+
 
 # ========== 9. Flask接口 ==========
 @app.route("/api/v1/user/register", methods=["POST"])
@@ -485,11 +712,13 @@ def user_register():
     result = register_service(user_data)
     return jsonify(result), result["code"]
 
+
 @app.route("/api/v1/user/login", methods=["POST"])
 def user_login():
     user_data = request.get_json()
     result = login_service(user_data)
     return jsonify(result), result["code"]
+
 
 @app.route("/api/v1/user/info", methods=["GET"])
 @jwt_required()
@@ -508,25 +737,28 @@ def get_user_info():
         }
     }), 200
 
+
 @app.route("/api/v1/db/init", methods=["GET"])
 def init_db():
     Base.metadata.create_all(bind=engine)
     app.logger.info("✅ 数据库初始化完成")
     return jsonify({"code": 200, "msg": "✅ 数据库初始化成功"}), 200
 
+
 # ========== 10. 启动Flask服务+命令行菜单（多线程） ==========
 def run_flask():
     app.run(host="0.0.0.0", port=5000, debug=False)  # 注意：debug=True会影响多线程
+
 
 if __name__ == "__main__":
     ensure_gitignore()
     # 初始化数据库（首次运行需执行）
     Base.metadata.create_all(bind=engine)
-    
+
     # 多线程同时运行Flask服务和命令行菜单
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True  # 主程序退出时，Flask线程自动结束
     flask_thread.start()
-    
+
     # 启动命令行菜单
     cli_menu()
