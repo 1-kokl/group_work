@@ -19,24 +19,11 @@ import os
 import threading  # 新增：用于多线程同时运行Flask和命令行菜单
 from functools import wraps
 from flask import request, abort
-import redis
 from datetime import datetime, timedelta
 import ipaddress
 
 # 在现有路由基础上添加验证装饰器
-@app.route("/api/v1/user/register", methods=["POST"])
-@validate_json(REGISTER_SCHEMA)
-def user_register():
-    user_data = request.get_json()
-    result = register_service(user_data)
-    return jsonify(result), result["code"]
 
-@app.route("/api/v1/user/login", methods=["POST"])
-@validate_json(LOGIN_SCHEMA)
-def user_login():
-    user_data = request.get_json()
-    result = login_service(user_data)
-    return jsonify(result), result["code"]
 
 # ========== 安全中间件类 ==========
 class SecurityMiddleware:
