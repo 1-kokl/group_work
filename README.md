@@ -1,7 +1,7 @@
-1.请将代码放在main分支下
+1.请将代码放在main分支下 \n
 
 
-2.这是目录结构(点击查看)
+2.这是目录结构(点击查看)\n
 project/
 ├── app/
 │   ├── services/          # 已存放实验七的工具类（如RSAServices、JWTService等）
@@ -18,7 +18,8 @@ project/
 |__ flask_new.py
 
 
-3.需要导入哪些包请记录在这里
+3.需要导入哪些包请记录在这里  
+
 # Web框架及扩展  \n
 pip install flask              # Flask核心框架
 pip install flask-cors         # 处理跨域请求（代码中使用了CORS）
