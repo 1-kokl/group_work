@@ -13,8 +13,16 @@ project/
 │   │   └── __init__.py
 │   └── __init__.py        # Flask应用初始化
 ├── config.py              # 配置参数（避免硬编码）
+|—— swagger_config.py      #Swagger文档配置参数
 └── run.py                 # 应用启动入口
 |__ flask_new.py
 
 
 3.需要导入哪些包请记录在这里
+Flask
+flask-cors
+flask-jwt-extended
+PyJWT
+pycryptodome
+SQLAlchemy
+flasgger
