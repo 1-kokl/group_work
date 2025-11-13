@@ -19,10 +19,14 @@ project/
 
 
 3.需要导入哪些包请记录在这里
-Flask
-flask-cors
-flask-jwt-extended
-PyJWT
-pycryptodome
-SQLAlchemy
-flasgger
+# Web框架及扩展  \n
+pip install flask              # Flask核心框架
+pip install flask-cors         # 处理跨域请求（代码中使用了CORS）
+pip install flask-restx        # 构建RESTful API并生成Swagger文档（app/api/__init__.py中使用）
+
+# 数据库相关
+pip install sqlalchemy         # ORM工具（数据模型和数据库操作，多处使用）
+
+# 加密与认证
+pip install pycryptodome       # 提供RSA加密功能（Crypto.PublicKey等模块）
+pip install pyjwt              # 处理JWT令牌生成与验证（JWTService中使用）
