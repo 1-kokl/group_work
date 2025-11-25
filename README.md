@@ -17,6 +17,27 @@ project/ <br>
 └── run.py                 # 应用启动入口 <br>
 |__ flask_new.py <br>
 
+src/
+├── App.vue               # 根组件，负责布局与路由占位
+├── main.js               # 启动入口、MSW 钩子、beforeunload 逻辑
+├── router/               # 路由配置（Login、Register、Navigation、Profile 等）
+├── store/
+│   ├── modules/auth.js   # Token / 用户态管理（使用 sessionStorage）
+│   └── modules/user.js   # 个人资料缓存，同步 sessionStorage + localStorage
+├── services/
+│   ├── http.js           # Axios 实例、401 刷新/降级处理
+│   └── api/              # authAPI、userAPI，封装后端契约
+├── pages/
+│   ├── auth/             # Login / Register（已移除验证码、用户名远程校验）
+│   ├── navigation/       # SystemNavigation 静态导航页
+│   └── user/             # Profile 静态个人中心（展示缓存信息）
+├── components/
+│   └── layout/           # AppSidebar 等布局组件（头部已移除）
+└── utils/
+    ├── security.js       # 输入清洗、密码/用户名/手机号校验，匹配新后端规则
+    ├── cache.js          # 前端缓存工具
+    └── perf.js           # 防抖/节流等性能函数
+```
 
 3.需要导入哪些包请记录在这里  
 
