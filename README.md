@@ -1,18 +1,18 @@
 1.请将代码放在main分支下 
 
 
-2.这是目录结构(点击查看)\n
+2.这是目录结构
 project/ <br>
 ├── app/ <br>
-│   ├── services/          # 已存放实验七的工具类（如RSAServices、JWTService等） <br>
+│   ├── services/          # 已存放的工具类（如RSAServices、JWTService等） <br>
 │   ├── routes/            # 存放路由逻辑（从两个文件中拆分路由）<br>
 │   │   ├── __init__.py<br>
 │   │   ├── auth_routes.py  # 整合用户注册/登录/信息接口<br>
-│   │   └── other_routes.py # 其他扩展接口（如实验七的数据库初始化）<br>
-│   ├── models/            # 存放数据模型（实验七的SQLAlchemy模型）<br>
+│   │   └── other_routes.py # 其他扩展接口（如数据库初始化）<br>
+│   ├── models/            # 存放数据模型（SQLAlchemy模型）<br>
 │   │   └── __init__.py<br>
 │   └── __init__.py        # Flask应用初始化<br>
-├── config.py              # 配置参数（避免硬编码） <br>
+├── config.py              # 配置参数 <br>
 |—— swagger_config.py      #Swagger文档配置参数 <br>
 └── run.py                 # 应用启动入口 <br>
 |__ flask_new.py <br>
@@ -28,11 +28,11 @@ src/
 │   ├── http.js           # Axios 实例、401 刷新/降级处理
 │   └── api/              # authAPI、userAPI，封装后端契约
 ├── pages/
-│   ├── auth/             # Login / Register（已移除验证码、用户名远程校验）
+│   ├── auth/             # Login / Register
 │   ├── navigation/       # SystemNavigation 静态导航页
 │   └── user/             # Profile 静态个人中心（展示缓存信息）
 ├── components/
-│   └── layout/           # AppSidebar 等布局组件（头部已移除）
+│   └── layout/           # AppSidebar 等布局组件
 └── utils/
     ├── security.js       # 输入清洗、密码/用户名/手机号校验，匹配新后端规则
     ├── cache.js          # 前端缓存工具
