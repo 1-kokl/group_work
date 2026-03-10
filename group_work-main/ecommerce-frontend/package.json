@@ -1,0 +1,61 @@
+{
+  "name": "ecommerce-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vue 3 ecommerce frontend integrated with backend APIs",
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "lint:fix": "vue-cli-service lint --fix",
+    "test:unit": "vue-cli-service test:unit",
+    "test:unit:watch": "vue-cli-service test:unit --watch",
+    "test:api": "jest --config tests/api/jest.api.config.js",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open",
+    "test:coverage": "vue-cli-service test:unit --coverage",
+    "build:analyze": "cross-env ANALYZE=true vue-cli-service build",
+    "serve:mock": "cross-env VUE_APP_USE_MSW=true vue-cli-service serve"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "element-plus": "^2.7.8",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0",
+    "vuex": "^4.1.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-eslint": "~5.0.0",
+    "@vue/cli-plugin-unit-jest": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "@vue/eslint-config-standard": "^8.0.1",
+  "@vue/vue3-jest": "^27.0.0-alpha.3",
+    "@vue/test-utils": "^2.4.1",
+    "@testing-library/vue": "^7.0.0",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/cypress": "^10.0.1",
+    "babel-jest": "^27.5.1",
+    "cross-env": "^7.0.3",
+    "cypress": "^13.7.1",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.5.1",
+    "msw": "^2.4.1",
+    "whatwg-fetch": "^3.6.20",
+    "compression-webpack-plugin": "^10.0.0",
+    "webpack-bundle-analyzer": "^4.10.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
