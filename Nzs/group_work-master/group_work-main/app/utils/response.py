@@ -9,5 +9,5 @@ def api_response(code,msg,data=None):
         "timestamp" : datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     if data is not None:
-        response["date"] = datetime
-    return jsonify(response),code
+        response["data"] = data
+    return jsonify(response), code

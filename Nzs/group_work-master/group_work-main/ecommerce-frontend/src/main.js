@@ -25,12 +25,6 @@ async function bootstrap() {
   app.use(router);
   app.use(ElementPlus);
   app.mount('#app');
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      store.dispatch('auth/forceLogout');
-    });
-  }
 }
 
 bootstrap();

@@ -1,3 +1,4 @@
+/* 与 Nzs/.../ecommerce-frontend/src/services/api/userAPI.js 保持同步；应放在 src/services/api/ 下使用 */
 import http, { normalizeHttpError } from '../http';
 import { getCache, setCache, clearCache } from '../../utils/cache';
 

@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from app.utils.response import api_response
 from app.middleware.jwt_auth import jwt_required
 from app.services.SM2_Utils import SM2Service
-#from app.services.user_service import user_service
+from app.services.user_service import user_service
 
 # 定义用户接口蓝图（路径前缀：/api/v1）
 user_bp = Blueprint("user", __name__, url_prefix="/api/v1")
@@ -33,7 +33,8 @@ def register():
     result = user_service.register(
         username=username,
         password=password,
-        phone_encrypted=encrypted_phone
+        phone=phone,
+        phone_encrypted=encrypted_phone,
     )
     # 5. 统一响应
     if result["success"]:

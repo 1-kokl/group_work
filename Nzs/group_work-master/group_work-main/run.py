@@ -3,6 +3,7 @@ import threading
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from flask import Flask
+from flask_cors import CORS
 from app.api._init_ import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
@@ -13,6 +14,7 @@ Base = declarative_base()
 
 # ========== 初始化Flask应用 ==========
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 init_api(app)
 
 # ========== 初始化国密服务（替换原RSA初始化） ==========

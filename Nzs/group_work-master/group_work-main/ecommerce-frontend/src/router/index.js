@@ -91,7 +91,7 @@ router.beforeEach((to, from, next) => {
 
   // 已登录用户访问仅访客页面（如登录、注册），自动跳转到仪表盘
   if (requiresGuest && isAuthenticated) {
-    return next({ name: 'Dashboard' });
+    return next({ name: 'Navigation' });
   }
 
   // 未登录用户访问受保护页面，重定向到登录页并保留目标路径
@@ -104,11 +104,13 @@ router.beforeEach((to, from, next) => {
 
   // 做额外的角色校验，确保用户具备访问权限
   if (requiresAuth && requiredRoles?.length) {
-    const userRoles = currentUser?.roles || [];
+    const userRoles =
+      currentUser?.roles ||
+      (currentUser?.role ? [currentUser.role] : []);
     const hasPermission = requiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasPermission) {
-      return next({ name: 'Dashboard' });
+      return next({ name: 'Navigation' });
     }
   }
 

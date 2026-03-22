@@ -1,9 +1,8 @@
 from flask import Blueprint, request
 from app.utils.response import api_response
 from app.middleware.jwt_auth import jwt_required
-# ====================== ✅ 修改位置1：注释掉不存在的 user_service ======================
-# from app.services.user_service import user_service  # 你的用户模块
-from app.services.JWT_SM2_Utils import jwt_service  # 你的JWT服务类
+from app.services.user_service import user_service
+from app.services.JWT_SM2_Utils import jwt_service
 
 # 定义认证接口蓝图（路径前缀：/api/v1/auth）
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
@@ -17,16 +16,9 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    # ====================== ✅ 修改位置2：跳过用户验证，直接模拟登录成功 ======================
-    # 原代码：user = user_service.login(username, password)
-    # 原代码：if not user: return api_response(401, user_service.error_msg)
-
-    # 模拟一个用户对象（满足后续代码使用）
-    class MockUser:
-        username = username
-        role = "user"
-
-    user = MockUser()
+    user = user_service.login(username, password)
+    if not user:
+        return api_response(401, user_service.error_msg)
 
     # 3. 调用JWT服务类生成令牌
     tokens = jwt_service.generate_tokens(
@@ -61,7 +53,10 @@ def refresh_token():
 @jwt_required
 def logout():
     # 1. 获取当前令牌并加入黑名单（你的JWT模块需支持）
-    current_token = request.headers.get("Authorization").split(" ")[1]
+    parts = request.headers.get("Authorization", "").split()
+    if len(parts) != 2:
+        return api_response(401, "令牌格式错误")
+    current_token = parts[1]
     jwt_service.add_to_blacklist(current_token)
 
     return api_response(200, "注销成功")

@@ -80,6 +80,40 @@ export function sanitizeInput(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-} // 修改点8：删除了第71行末尾的空格
+}
 
-// 修改点9：在文件末尾添加一个空行（这是第82行的修改）
+/** @returns {true|string} */
+export function validateUsername(username) {
+  const [ok, msg] = checkUsername(username);
+  return ok ? true : msg;
+}
+
+/** @returns {true|string} */
+export function validatePhoneNumber(phone) {
+  const [ok, msg] = checkPhone(phone);
+  return ok ? true : msg;
+}
+
+/**
+ * 供注册页强度条与校验使用
+ * @returns {{ valid: boolean, feedback: string[], score: number }}
+ */
+export function validatePasswordStrength(password) {
+  const feedback = [];
+  let score = 0;
+  if (!password) {
+    return { valid: false, feedback: ['密码不能为空'], score: 0 };
+  }
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+
+  const [ok, msg] = checkPassword(password);
+  if (!ok) {
+    feedback.push(msg);
+  }
+  return { valid: ok, feedback, score };
+}
+

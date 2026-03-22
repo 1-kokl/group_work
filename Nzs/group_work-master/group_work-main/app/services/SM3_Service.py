@@ -1,30 +1,25 @@
-import gmssl
-import hashlib
+"""SM3 摘要：适配 pip 版 gmssl（提供 sm3_hash + bytes_to_list，无 SM3 类）。"""
+from gmssl.sm3 import sm3_hash as _gmssl_sm3_hash, bytes_to_list
 
 
 def sm3_hash(data):
     """
-    SM3哈希算法实现（替代SHA256）
-    :param data: 待哈希的字符串/字节串
-    :return: SM3哈希结果（16进制字符串）
+    SM3 哈希（替代 SHA256）
+    :param data: 字符串或字节串
+    :return: 64 位十六进制小写字符串
     """
     if isinstance(data, str):
-        data = data.encode('utf-8')
+        data = data.encode("utf-8")
     elif not isinstance(data, bytes):
         raise TypeError("输入数据仅支持字符串/字节串")
-
-    sm3 = gmssl.sm3.SM3()
-    sm3.update(data)
-    return sm3.hexdigest()
+    return _gmssl_sm3_hash(bytes_to_list(data))
 
 
-# 兼容原hash_password函数名，无缝替换
 def hash_password(password):
     """密码哈希（SM3）"""
     return sm3_hash(password)
 
 
-# 测试函数（可选）
 if __name__ == "__main__":
     test_pwd = "TestPass123!"
     print(f"原始密码: {test_pwd}")

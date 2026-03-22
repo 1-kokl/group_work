@@ -1,3 +1,4 @@
+/* 与 Nzs/group_work-main/ecommerce-frontend/src/services/api/authAPI.js 保持同步 */
 import axios from 'axios';
 import http, { API_BASE_URL, normalizeHttpError } from '../http';
 
@@ -22,7 +23,6 @@ export async function login(credentials) {
   }
 }
 
-/** 注册仅创建账号，不返回 JWT；登录需单独调用 login。 */
 export async function register(payload) {
   try {
     const data = await http.post(

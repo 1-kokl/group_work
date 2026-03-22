@@ -169,22 +169,15 @@ const actions = {
     }
   },
 
-  async register({ commit, dispatch }, payload) {
+  /** 仅创建账号；令牌需在 register 成功后由 login 写入。 */
+  async register({ commit }, payload) {
     commit('SET_LOADING', true);
     commit('SET_ERROR', null);
-    commit('SET_STATUS', 'authenticating');
+    commit('SET_STATUS', 'registering');
 
     try {
-      const { token, refreshToken, expiresAt, user } = await authAPI.register(
-        payload
-      );
-      commit('SET_TOKENS', { token, refreshToken, expiresAt });
-      commit('SET_USER', user);
-      commit('SET_STATUS', 'authenticated');
-      if (user) {
-        dispatch('user/setProfile', user, { root: true });
-      }
-      return user;
+      await authAPI.register(payload);
+      commit('SET_STATUS', 'idle');
     } catch (error) {
       commit('SET_STATUS', 'error');
       commit('SET_ERROR', error);

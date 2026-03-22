@@ -6,6 +6,7 @@ from .SM2_Utils import SM2Service  # 这里你已经加了点 ✔️ 正确
 class JWTSM2Service:
     def __init__(self):
         self.sm2_service = SM2Service()
+        self._token_blacklist = set()
         # JWT头部（自定义，标识SM2算法）
         self.header = {
             "alg": "SM2",
@@ -33,6 +34,7 @@ class JWTSM2Service:
         :param expires_in: 过期时间（秒）
         :return: JWT令牌字符串
         """
+        payload = dict(payload)
         # 添加过期时间
         payload["exp"] = int(time.time()) + expires_in
         # 编码头部和载荷
@@ -52,6 +54,8 @@ class JWTSM2Service:
         :return: 验证通过返回载荷，失败抛出异常
         """
         try:
+            if token in self._token_blacklist:
+                raise RuntimeError("Token已注销")
             # 拆分JWT
             header_b64, payload_b64, sign_b64 = token.split('.')
             # 验证签名
@@ -65,6 +69,32 @@ class JWTSM2Service:
             return payload
         except Exception as e:
             raise RuntimeError(f"Token验证失败: {str(e)}")
+
+    def generate_tokens(self, username, role="user"):
+        access_token = self.generate_token(
+            {"username": username, "role": role}, expires_in=3600
+        )
+        refresh_token = self.generate_token(
+            {"username": username, "role": role, "typ": "refresh"},
+            expires_in=604800,
+        )
+        return {"access_token": access_token, "refresh_token": refresh_token}
+
+    def refresh_access_token(self, refresh_token):
+        try:
+            payload = self.verify_token(refresh_token)
+            if payload.get("typ") != "refresh":
+                return None
+            username = payload.get("username")
+            role = payload.get("role", "user")
+            return self.generate_token(
+                {"username": username, "role": role}, expires_in=3600
+            )
+        except Exception:
+            return None
+
+    def add_to_blacklist(self, token):
+        self._token_blacklist.add(token)
 
 # ====================== ✅【唯一修改：在这里添加这一行】======================
 # 作用：创建一个可以被外部导入的 jwt_service 实例
