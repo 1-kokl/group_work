@@ -1,7 +1,7 @@
 import sqlite3
 import os
-from SM3_Utils import hash_password
-from SM4_Utils import SM4Service
+from .SM3_Service import hash_password
+from .SM4_Utils import SM4Service
 
 # ========== 初始化数据库连接 ==========
 conn = sqlite3.connect('user.db')
