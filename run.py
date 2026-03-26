@@ -7,6 +7,7 @@ from flask_cors import CORS
 from app.api._init_ import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
+from app.routes import register_blueprints
 
 # ========== 初始化数据库 ==========
 engine = create_engine('sqlite:///user.db')
@@ -16,6 +17,7 @@ Base = declarative_base()
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 init_api(app)
+register_blueprints(app)
 
 # ========== 初始化国密服务（替换原RSA初始化） ==========
 def init_crypto_services():
