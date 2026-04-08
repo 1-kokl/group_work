@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import store from '../store';
+import RootCertDownload from '@/pages/cert/RootCertDownload.vue';
+import CertManager from '@/pages/cert/CertManager.vue';
+import GenerateCSR from '@/pages/cert/GenerateCSR.vue';
+
 
 /**
  * 路由配置说明：
@@ -69,6 +73,16 @@ const routes = [
     meta: {
       title: '页面不存在'
     }
+  },
+  {
+    path: '/cert',
+    component: RootCertDownload,
+    meta: { requiresAuth: true, roles: ['admin'] }, // 需登录+管理员权限
+    children: [
+      { path: 'root', name: 'RootCertDownload', component: RootCertDownload },
+      { path: 'manager', name: 'CertManager', component: CertManager },
+      { path: 'generate-csr', name: 'GenerateCSR', component: GenerateCSR }
+    ]
   }
 ];
 
@@ -112,6 +126,12 @@ router.beforeEach((to, from, next) => {
     if (!hasPermission) {
       return next({ name: 'Navigation' });
     }
+  }
+  const token = localStorage.getItem('token');
+  if (to.meta.requiresAuth && !localStorage.getItem('token')) {
+    next('/login');
+  } else {
+    next();
   }
 
   return next();
