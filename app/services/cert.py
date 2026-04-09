@@ -2,6 +2,9 @@
 from gmssl import sm2, sm3, func
 import base64
 import os
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
+import base64
 
 
 def generate_sm2_key():
@@ -12,7 +15,6 @@ def generate_sm2_key():
     private_key = os.urandom(32).hex()
 
     # 创建一个临时的 SM2 对象，仅用于计算公钥
-    # 注意：有些版本的 CryptSM2 不会自动计算公钥，需要显式调用方法
     tmp = sm2.CryptSM2(private_key=private_key, public_key='')
 
     # 尝试获取公钥：优先使用内部属性 _public_key，否则尝试其他方式
@@ -100,3 +102,41 @@ if __name__ == "__main__":
     user_crt = issue_user_certificate(ca_pri, ca_pub, user_pub, "张三")
     print("\n===== 用户证书 =====")
     print(user_crt)
+
+
+    @staticmethod
+    def verify_client_cert(client_cert_pem: str, root_ca_cert_path: str):
+        """
+        验证客户端证书：是否由本CA签发 + 是否过期
+        不做CRL，简化实现
+        """
+        # 加载根CA证书
+        with open(root_ca_cert_path, "rb") as f:
+            root_ca = x509.load_pem_x509_certificate(f.read())
+
+        # 清洗Nginx透传的证书格式
+        clean_cert = client_cert_pem.replace("\t", "").strip()
+        if not clean_cert.startswith("-----BEGIN CERTIFICATE-----"):
+            clean_cert = f"-----BEGIN CERTIFICATE-----\n{clean_cert}\n-----END CERTIFICATE-----"
+
+        # 解析客户端证书
+        client_cert = x509.load_pem_x509_certificate(clean_cert.encode("utf-8"))
+
+        # 1. 验证证书由本CA签发
+        try:
+            root_ca.public_key().verify(
+                client_cert.signature,
+                client_cert.tbs_certificate_bytes,
+                hashes.SHA256()
+            )
+        except:
+            raise Exception("证书不是由本平台CA签发")
+
+        # 2. 验证证书有效期
+        now = datetime.utcnow()
+        if client_cert.not_valid_after < now or client_cert.not_valid_before > now:
+            raise Exception("证书已过期或未生效")
+
+        # 3. 计算证书指纹（用于数据库查询）
+        fingerprint = client_cert.fingerprint(hashes.SHA256()).hex()
+        return client_cert, fingerprint

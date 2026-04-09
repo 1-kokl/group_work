@@ -1,4 +1,3 @@
-"""SM3 摘要：适配 pip 版 gmssl（提供 sm3_hash + bytes_to_list，无 SM3 类）。"""
 from gmssl.sm3 import sm3_hash as _gmssl_sm3_hash, bytes_to_list
 
 
