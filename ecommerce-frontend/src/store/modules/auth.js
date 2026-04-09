@@ -34,23 +34,18 @@ function writeJson(key, value) {
 function writeTokens(state) {
   try {
     if (!storage) return;
-    if (state.token) {
-      storage.setItem(TOKEN_STORAGE_KEY, state.token);
-    } else {
-      storage.removeItem(TOKEN_STORAGE_KEY);
-    }
+    // 修复：避免短路运算中的语法错误
+    state.token
+      ? storage.setItem(TOKEN_STORAGE_KEY, state.token)
+      : storage.removeItem(TOKEN_STORAGE_KEY);
 
-    if (state.refreshToken) {
-      storage.setItem(REFRESH_STORAGE_KEY, state.refreshToken);
-    } else {
-      storage.removeItem(REFRESH_STORAGE_KEY);
-    }
+    state.refreshToken
+      ? storage.setItem(REFRESH_STORAGE_KEY, state.refreshToken)
+      : storage.removeItem(REFRESH_STORAGE_KEY);
 
-    if (state.expiresAt) {
-      storage.setItem(EXPIRES_STORAGE_KEY, String(state.expiresAt));
-    } else {
-      storage.removeItem(EXPIRES_STORAGE_KEY);
-    }
+    state.expiresAt
+      ? storage.setItem(EXPIRES_STORAGE_KEY, String(state.expiresAt))
+      : storage.removeItem(EXPIRES_STORAGE_KEY);
   } catch (error) {
     console.warn('[auth] 存储令牌信息失败:', error);
   }
@@ -65,9 +60,9 @@ function clearStorage() {
 }
 
 const state = () => ({
-  token: storage?.getItem(TOKEN_STORAGE_KEY) || '',
-  refreshToken: storage?.getItem(REFRESH_STORAGE_KEY) || '',
-  expiresAt: Number(storage?.getItem(EXPIRES_STORAGE_KEY)) || 0,
+  token: storage ? storage.getItem(TOKEN_STORAGE_KEY) || '' : '',
+  refreshToken: storage ? storage.getItem(REFRESH_STORAGE_KEY) || '' : '',
+  expiresAt: storage ? Number(storage.getItem(EXPIRES_STORAGE_KEY)) || 0 : 0,
   user: readJson(USER_STORAGE_KEY),
   status: 'idle',
   loading: false,
@@ -82,15 +77,19 @@ const getters = {
   authStatus: (state) => state.status,
   authLoading: (state) => state.loading,
   authError: (state) => state.error,
-  isTokenExpired: (state) =>
-    state.expiresAt ? Date.now() > Number(state.expiresAt) : true
+  isTokenExpired: (state) => {
+    // 修复：简化三元运算，避免解析错误
+    if (!state.expiresAt) return true;
+    return Date.now() > Number(state.expiresAt);
+  }
 };
 
 const mutations = {
-  SET_TOKENS(state, { token, refreshToken, expiresAt }) {
-    state.token = token || '';
-    state.refreshToken = refreshToken || '';
-    state.expiresAt = expiresAt || 0;
+  // 修复：明确参数为对象，避免解构错误
+  SET_TOKENS(state, payload) {
+    state.token = payload.token || '';
+    state.refreshToken = payload.refreshToken || '';
+    state.expiresAt = payload.expiresAt || 0;
     writeTokens(state);
   },
   SET_USER(state, user) {
@@ -101,7 +100,7 @@ const mutations = {
     state.status = status || 'idle';
   },
   SET_LOADING(state, value) {
-    state.loading = value;
+    state.loading = Boolean(value);
   },
   SET_ERROR(state, error) {
     state.error = error || null;
@@ -130,18 +129,33 @@ const actions = {
     }
   },
 
-  async login({ commit, dispatch }, { remember = false, ...credentials }) {
+  // 修复：去掉扩展运算符，手动解构参数，避免 ES6 语法解析错误
+  async login({ commit, dispatch }, payload) {
     commit('SET_LOADING', true);
     commit('SET_ERROR', null);
     commit('SET_STATUS', 'authenticating');
 
+    // 手动解构参数，替代 ...credentials
+    const remember = Boolean(payload.remember);
+    const credentials = {
+      identifier: payload.identifier,
+      password: payload.password,
+      captcha: payload.captcha,
+      captchaKey: payload.captchaKey
+    };
+
     try {
-      const { token, refreshToken, expiresAt, user } = await authAPI.login(
-        credentials
-      );
+      const loginRes = await authAPI.login(credentials);
+      // 明确赋值，避免解构错误
+      const token = loginRes.token;
+      const refreshToken = loginRes.refreshToken;
+      const expiresAt = loginRes.expiresAt;
+      const user = loginRes.user;
+
       commit('SET_TOKENS', { token, refreshToken, expiresAt });
       commit('SET_USER', user);
       commit('SET_STATUS', 'authenticated');
+
       if (user) {
         await dispatch('user/setProfile', user, { root: true });
       }
@@ -152,9 +166,7 @@ const actions = {
       }
 
       if (remember) {
-        writeJson(REMEMBER_STORAGE_KEY, {
-          identifier: credentials.identifier
-        });
+        writeJson(REMEMBER_STORAGE_KEY, { identifier: credentials.identifier });
       } else {
         localStorage.removeItem(REMEMBER_STORAGE_KEY);
       }
@@ -169,7 +181,6 @@ const actions = {
     }
   },
 
-  /** 仅创建账号；令牌需在 register 成功后由 login 写入。 */
   async register({ commit }, payload) {
     commit('SET_LOADING', true);
     commit('SET_ERROR', null);
@@ -188,20 +199,19 @@ const actions = {
   },
 
   async refreshToken({ commit, getters }) {
-    const refreshToken = getters.refreshToken || storage?.getItem(REFRESH_STORAGE_KEY);
+    const refreshToken = getters.refreshToken || (storage ? storage.getItem(REFRESH_STORAGE_KEY) : '');
     if (!refreshToken) {
       throw new Error('缺少刷新令牌');
     }
     try {
-      const { token, refreshToken: newRefreshToken, expiresAt } =
-        await authAPI.refreshToken(refreshToken);
+      const refreshRes = await authAPI.refreshToken(refreshToken);
       commit('SET_TOKENS', {
-        token,
-        refreshToken: newRefreshToken,
-        expiresAt
+        token: refreshRes.token,
+        refreshToken: refreshRes.refreshToken,
+        expiresAt: refreshRes.expiresAt
       });
       commit('SET_STATUS', 'authenticated');
-      return token;
+      return refreshRes.token;
     } catch (error) {
       commit('SET_STATUS', 'error');
       commit('SET_ERROR', error);

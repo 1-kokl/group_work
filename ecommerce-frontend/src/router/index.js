@@ -3,6 +3,7 @@ import store from '../store';
 import RootCertDownload from '@/pages/cert/RootCertDownload.vue';
 import CertManager from '@/pages/cert/CertManager.vue';
 import GenerateCSR from '@/pages/cert/GenerateCSR.vue';
+import CertificateLogin from '@/pages/auth/CertificateLogin.vue';
 
 
 /**
@@ -83,6 +84,15 @@ const routes = [
       { path: 'manager', name: 'CertManager', component: CertManager },
       { path: 'generate-csr', name: 'GenerateCSR', component: GenerateCSR }
     ]
+  },
+  {
+    path: '/login/certificate',
+    name: 'CertificateLogin',
+    component: CertificateLogin,
+    meta: {
+      hideLayout: true,
+      requiresAuth: false
+    }
   }
 ];
 

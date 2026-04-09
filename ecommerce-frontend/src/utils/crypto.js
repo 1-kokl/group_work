@@ -56,7 +56,7 @@ export const generateCSR = async (keyPair, subject) => {
     const publicKeyPem = await exportPublicKeyToPEM(keyPair.publicKey);
     const csrContent = `-----BEGIN CERTIFICATE REQUEST-----
 ${btoa(JSON.stringify({
-  subject: subject, // { CN: 'example.com', O: 'Ecommerce', C: 'CN' }
+  subject, // { CN: 'example.com', O: 'Ecommerce', C: 'CN' }
   publicKey: publicKeyPem,
   signatureAlgorithm: 'sha256WithRSAEncryption',
   timestamp: new Date().toISOString()
