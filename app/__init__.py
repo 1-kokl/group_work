@@ -1,0 +1,1 @@
+# app/__init__.py - Flask应用初始化

@@ -1,0 +1,19 @@
+
+# 敏感数据文件（自动添加，禁止GitHub同步）
+user_registry.txt
+# 敏感数据文件（自动添加，禁止GitHub同步）
+ecommerce.db
+user.db
+**/sm2_key.txt
+**/sm4_key.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 前端构建缓存（勿提交）
+**/node_modules/
+**/node_modules/.cache/
