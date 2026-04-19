@@ -94,6 +94,11 @@ const routes = [
       requiresAuth: false
     }
   }
+  {
+  path: '/cert-merge',
+  name: 'CertMerge',
+  component: () => import('@/pages/CertMerge.vue')
+}
 ];
 
 const router = createRouter({
