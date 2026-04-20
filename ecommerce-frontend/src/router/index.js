@@ -93,7 +93,7 @@ const routes = [
       hideLayout: true,
       requiresAuth: false
     }
-  }
+  },
   {
   path: '/cert-merge',
   name: 'CertMerge',
