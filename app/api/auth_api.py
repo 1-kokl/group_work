@@ -11,21 +11,18 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 # 接口1：用户登录（POST /api/v1/auth/login）
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    # 1. 获取前端提交的登录数据
-    data = request.get_json()  # {"username": "test", "password": "Test@123"}
+    data = request.get_json()
     username = data.get("username")
     password = data.get("password")
 
     user = user_service.login(username, password)
     if not user:
-        return api_response(401, user_service.error_msg)
+        return api_response(401, user_service.error_msg, None)
 
-    # 3. 调用JWT服务类生成令牌
     tokens = jwt_service.generate_tokens(
         username=user.username,
-        role=user.role  # 传入角色，用于权限控制
+        role=user.role
     )
-    # 4. 返回令牌（包含access_token和refresh_token）
     return api_response(200, "登录成功", {
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"]
@@ -35,15 +32,13 @@ def login():
 # 接口2：刷新访问令牌（POST /api/v1/auth/refresh）
 @auth_bp.route("/refresh", methods=["POST"])
 def refresh_token():
-    # 1. 获取refresh_token
     refresh_token = request.get_json().get("refresh_token")
     if not refresh_token:
-        return api_response(400, "缺少refresh_token")
+        return api_response(400, "缺少refresh_token", None)
 
-    # 2. 调用JWT服务类验证并生成新access_token
     new_access_token = jwt_service.refresh_access_token(refresh_token)
     if not new_access_token:
-        return api_response(401, "refresh_token无效或已过期，请重新登录")
+        return api_response(401, "refresh_token无效或已过期，请重新登录", None)
 
     return api_response(200, "令牌刷新成功", {"access_token": new_access_token})
 
@@ -52,11 +47,10 @@ def refresh_token():
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required
 def logout():
-    # 1. 获取当前令牌并加入黑名单（你的JWT模块需支持）
     parts = request.headers.get("Authorization", "").split()
     if len(parts) != 2:
-        return api_response(401, "令牌格式错误")
+        return api_response(401, "令牌格式错误", None)
     current_token = parts[1]
     jwt_service.add_to_blacklist(current_token)
 
-    return api_response(200, "注销成功")
+    return api_response(200, "注销成功", None)

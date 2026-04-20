@@ -54,6 +54,120 @@ npm run serve
 默认开发端口 `8080`，会将 `/api` 请求代理到 `.env` 指定的后端地址。若需本地 MSW Mock，可运行 `npm run serve:mock`。
 
 ---
+# ... existing code ...
+
+@cert_bp.route("/cert-login", methods=["POST"])
+def cert_login():
+    try:
+        client_cert_pem = request.headers.get("X-SSL-CLIENT-CERT")
+        if not client_cert_pem:
+            return jsonify({"code": 401, "msg": "未检测到客户端证书"}), 401
+
+        client_cert, fingerprint = CertService.verify_client_cert(client_cert_pem, CA_CERT_PATH)
+
+        cert = Certificate.query.filter_by(fingerprint=fingerprint, status=True).first()
+        if not cert:
+            return jsonify({"code": 401, "msg": "证书未授权或已禁用"}), 401
+
+        if cert.expired_at < datetime.utcnow():
+            return jsonify({"code": 401, "msg": "证书已过期"}), 401
+
+        token = generate_token(user_id=cert.user_id)
+        return jsonify({
+            "code": 200,
+            "msg": "证书登录成功",
+            "data": {"access_token": token, "expires_in": 7200}
+        })
+    except Exception as e:
+        return jsonify({"code": 401, "msg": f"认证失败：{str(e)}"}), 401
+
+
+@cert_bp.route("/get", methods=["GET"])
+def get_cert():
+    """获取用户证书"""
+    try:
+        cert_pem = cert_service.get_ca_cert()
+        return jsonify({
+            "code": 200,
+            "msg": "获取证书成功",
+            "data": {"cert": cert_pem}
+        })
+    except Exception as e:
+        return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@cert_bp.route("/test", methods=["POST"])
+def test_cert():
+    """测试证书有效性"""
+    data = request.get_json()
+    cert_content = data.get("cert", "")
+    
+    if not cert_content:
+        return jsonify({"code": 400, "msg": "证书内容不能为空"}), 400
+    
+    try:
+        is_valid = cert_service.verify_cert_format(cert_content)
+        return jsonify({
+            "code": 200,
+  # ... existing code ...
+
+@cert_bp.route("/cert-login", methods=["POST"])
+def cert_login():
+    try:
+        client_cert_pem = request.headers.get("X-SSL-CLIENT-CERT")
+        if not client_cert_pem:
+            return jsonify({"code": 401, "msg": "未检测到客户端证书"}), 401
+
+        client_cert, fingerprint = CertService.verify_client_cert(client_cert_pem, CA_CERT_PATH)
+
+        cert = Certificate.query.filter_by(fingerprint=fingerprint, status=True).first()
+        if not cert:
+            return jsonify({"code": 401, "msg": "证书未授权或已禁用"}), 401
+
+        if cert.expired_at < datetime.utcnow():
+            return jsonify({"code": 401, "msg": "证书已过期"}), 401
+
+        token = generate_token(user_id=cert.user_id)
+        return jsonify({
+            "code": 200,
+            "msg": "证书登录成功",
+            "data": {"access_token": token, "expires_in": 7200}
+        })
+    except Exception as e:
+        return jsonify({"code": 401, "msg": f"认证失败：{str(e)}"}), 401
+
+
+@cert_bp.route("/get", methods=["GET"])
+def get_cert():
+    """获取用户证书"""
+    try:
+        cert_pem = cert_service.get_ca_cert()
+        return jsonify({
+            "code": 200,
+            "msg": "获取证书成功",
+            "data": {"cert": cert_pem}
+        })
+    except Exception as e:
+        return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@cert_bp.route("/test", methods=["POST"])
+def test_cert():
+    """测试证书有效性"""
+    data = request.get_json()
+    cert_content = data.get("cert", "")
+    
+    if not cert_content:
+        return jsonify({"code": 400, "msg": "证书内容不能为cd C:\Users\Lenovo\Documents\GitHub\group_work-main
+
+# 停止所有 Python 进程
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# 删除旧数据库
+Remove-Item user.db -ErrorAction SilentlyContinue
+
+# 启动后端（使用 run.py）
+python run.py
 
 ## 登录 / 注册流程
 

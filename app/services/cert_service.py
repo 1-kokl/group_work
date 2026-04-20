@@ -110,22 +110,18 @@ class CertService:
         验证客户端证书：是否由本CA签发 + 有效期检查
         供登录接口调用
         """
-        # 加载根CA证书
         with open(root_ca_path, "rb") as f:
             root_ca = x509.load_pem_x509_certificate(f.read(), default_backend())
 
-        # 清洗证书格式
         clean_cert = client_cert_pem.strip()
         if not clean_cert.startswith("-----BEGIN CERTIFICATE-----"):
             clean_cert = f"-----BEGIN CERTIFICATE-----\n{clean_cert}\n-----END CERTIFICATE-----"
 
-        # 解析客户端证书
         client_cert = x509.load_pem_x509_certificate(
             clean_cert.encode("utf-8"),
             default_backend()
         )
 
-        # 验证证书签名（是否由本CA签发）
         try:
             root_ca.public_key().verify(
                 client_cert.signature,
@@ -135,11 +131,53 @@ class CertService:
         except Exception:
             raise Exception("证书非法：非本平台CA签发")
 
-        # 验证证书有效期
         now = datetime.utcnow()
         if client_cert.not_valid_after < now or client_cert.not_valid_before > now:
             raise Exception("证书已过期或未生效")
 
-        # 计算证书指纹（用于数据库查询）
         fingerprint = client_cert.fingerprint(hashes.SHA256()).hex()
         return client_cert, fingerprint
+
+    @staticmethod
+    def verify_cert_format(cert_content: str) -> bool:
+        """
+        验证证书格式是否有效
+        :param cert_content: PEM格式的证书内容
+        :return: True 如果格式有效，False 否则
+        """
+        try:
+            if not cert_content or not isinstance(cert_content, str):
+                return False
+            
+            clean_cert = cert_content.strip()
+            
+            if not clean_cert.startswith("-----BEGIN CERTIFICATE-----"):
+                clean_cert = f"-----BEGIN CERTIFICATE-----\n{clean_cert}\n-----END CERTIFICATE-----"
+            
+            x509.load_pem_x509_certificate(
+                clean_cert.encode("utf-8"),
+                default_backend()
+            )
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def merge_certificates(ca_cert_pem: str, user_cert_pem: str) -> str:
+        """
+        合并CA证书和用户证书为完整的证书链
+        :param ca_cert_pem: CA根证书PEM内容
+        :param user_cert_pem: 用户证书PEM内容
+        :return: 合并后的证书链PEM内容
+        """
+        try:
+            ca_cert = ca_cert_pem.strip()
+            user_cert = user_cert_pem.strip()
+            
+            if not ca_cert or not user_cert:
+                raise ValueError("证书内容不能为空")
+            
+            merged = f"{user_cert}\n{ca_cert}"
+            return merged
+        except Exception as e:
+            raise Exception(f"证书合并失败: {str(e)}")

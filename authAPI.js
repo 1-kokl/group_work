@@ -89,42 +89,55 @@ function normalizeAuthResponse(data = {}, meta = {}) {
   const payload = unwrapPayload(data);
   const p = payload && typeof payload === 'object' ? payload : {};
 
+  // 优先从 data.data 中提取（后端标准格式）
   const token =
-    p.token ||
-    p.accessToken ||
     p.access_token ||
+    p.accessToken ||
+    p.token ||
+    data?.data?.access_token ||
+    data?.data?.accessToken ||
+    data?.data?.token ||
+    data.access_token ||
+    data.accessToken ||
     data.token ||
     null;
+
   const refreshToken =
-    p.refreshToken ||
     p.refresh_token ||
+    p.refreshToken ||
+    data?.data?.refresh_token ||
+    data?.data?.refreshToken ||
+    data.refresh_token ||
     data.refreshToken ||
     meta.existingRefresh ||
     null;
+
   const expiresIn =
-    p.expiresIn || p.expires_in || data.expiresIn || null;
+    p.expires_in ||
+    p.expiresIn ||
+    data?.data?.expires_in ||
+    data?.data?.expiresIn ||
+    data.expires_in ||
+    data.expiresIn ||
+    3600;
+
   const csrfToken =
-    p.csrfToken || p.csrf_token || data.csrfToken || null;
-  const inferredUser =
-    p.user ||
-    data.user ||
-    meta.user ||
-    (meta.username ||
-    p.username ||
-    data.username ||
-    meta.email ||
-    p.email ||
-    data.email
+    p.csrfToken ||
+    p.csrf_token ||
+    data.csrfToken ||
+    data?.data?.csrfToken ||
+    null;
+
+  const userInfo = p.user || data?.data?.user || meta.user || null;
+
+  const inferredUser = userInfo ||
+    (meta.username || p.username || data?.data?.username
       ? {
-          username:
-            meta.username || p.username || data.username || null,
-          role: meta.role || p.role || data.role || 'user',
-          roles:
-            meta.roles ||
-            p.roles ||
-            [meta.role || p.role || data.role || 'user'].filter(Boolean),
-          phone: meta.phone || p.phone || data.phone || null,
-          email: meta.email || p.email || data.email || null
+          username: meta.username || p.username || data?.data?.username || null,
+          role: meta.role || p.role || data?.data?.role || 'user',
+          roles: [meta.role || p.role || data?.data?.role || 'user'].filter(Boolean),
+          phone: meta.phone || p.phone || data?.data?.phone || null,
+          email: meta.email || p.email || data?.data?.email || null
         }
       : null);
 
@@ -133,6 +146,7 @@ function normalizeAuthResponse(data = {}, meta = {}) {
     : expiresIn
       ? Date.now() + Number(expiresIn) * 1000
       : null;
+
   if (token && !expiresAt) {
     expiresAt = Date.now() + 3600 * 1000;
   }
@@ -144,6 +158,7 @@ function normalizeAuthResponse(data = {}, meta = {}) {
       console.warn('[authAPI] 存储 CSRF 令牌失败:', error);
     }
   }
+
   return {
     token,
     refreshToken,

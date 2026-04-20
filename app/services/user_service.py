@@ -22,7 +22,8 @@ def _ensure_table():
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 phone TEXT NOT NULL,
-                phone_encrypted TEXT NOT NULL
+                phone_encrypted TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user'
             )
             """
         )

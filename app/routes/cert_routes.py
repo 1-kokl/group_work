@@ -66,3 +66,64 @@ def cert_login():
         })
     except Exception as e:
         return jsonify({"code": 401, "msg": f"认证失败：{str(e)}"}), 401
+
+
+@cert_bp.route("/get", methods=["GET"])
+def get_cert():
+    """获取用户证书"""
+    try:
+        cert_pem = cert_service.get_ca_cert()
+        return jsonify({
+            "code": 200,
+            "msg": "获取证书成功",
+            "data": {"cert": cert_pem}
+        })
+    except Exception as e:
+        return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@cert_bp.route("/test", methods=["POST"])
+def test_cert():
+    """测试证书有效性"""
+    data = request.get_json()
+    cert_content = data.get("cert", "")
+    
+    if not cert_content:
+        return jsonify({"code": 400, "msg": "证书内容不能为空"}), 400
+    
+    try:
+        is_valid = cert_service.verify_cert_format(cert_content)
+        return jsonify({
+            "code": 200,
+            "msg": "证书测试完成",
+            "data": {
+                "valid": is_valid,
+                "message": "证书格式有效" if is_valid else "证书格式无效"
+            }
+        })
+    except Exception as e:
+        return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@cert_bp.route("/merge", methods=["POST"])
+def merge_certs():
+    """合并CA证书和用户证书"""
+    data = request.get_json()
+    ca_cert = data.get("ca_cert", "")
+    user_cert = data.get("user_cert", "")
+    
+    if not ca_cert or not user_cert:
+        return jsonify({"code": 400, "msg": "CA证书和用户证书都不能为空"}), 400
+    
+    try:
+        merged_cert = cert_service.merge_certificates(ca_cert, user_cert)
+        return jsonify({
+            "code": 200,
+            "msg": "证书合并成功",
+            "data": {
+                "merged_cert": merged_cert,
+                "length": len(merged_cert)
+            }
+        })
+    except Exception as e:
+        return jsonify({"code": 500, "msg": str(e)}), 500

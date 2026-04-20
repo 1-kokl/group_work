@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from flask import Flask
 from flask_cors import CORS
-from app.api._init_ import init_api
+from app.api import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
 from app.routes import register_blueprints

@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     phone TEXT NOT NULL,
-    phone_encrypted TEXT NOT NULL
+    phone_encrypted TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user'
 )
 ''')
 conn.commit()
@@ -85,9 +86,9 @@ def register():
     # 1. 写入SQLite数据库
     try:
         cursor.execute('''
-                INSERT INTO users (username, password_hash, phone, phone_encrypted)
-                VALUES (?, ?, ?, ?)
-                ''', (username, password_hash, phone, encrypted_phone))
+                INSERT INTO users (username, password_hash, phone, phone_encrypted, role)
+                VALUES (?, ?, ?, ?, ?)
+                ''', (username, password_hash, phone, encrypted_phone, 'user'))
         conn.commit()
         print("✅ 注册成功！加密数据已写入SQLite数据库")
     except sqlite3.IntegrityError:

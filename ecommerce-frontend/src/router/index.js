@@ -95,10 +95,14 @@ const routes = [
     }
   },
   {
-  path: '/cert-merge',
-  name: 'CertMerge',
-  component: () => import('@/pages/CertMerge.vue')
-}
+    path: '/cert-merge',
+    name: 'CertMerge',
+    component: () => import('@/pages/cert/CertMerge.vue'),
+    meta: {
+      title: '证书合并',
+      requiresAuth: true
+    }
+  }
 ];
 
 const router = createRouter({
