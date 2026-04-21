@@ -1,9 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import store from '../store';
-import RootCertDownload from '@/pages/cert/RootCertDownload.vue';
-import CertManager from '@/pages/cert/CertManager.vue';
-import GenerateCSR from '@/pages/cert/GenerateCSR.vue';
-import CertificateLogin from '@/pages/auth/CertificateLogin.vue';
+import CertCenter from '@/pages/cert/CertCenter.vue';
 
 
 /**
@@ -77,30 +74,20 @@ const routes = [
   },
   {
     path: '/cert',
-    component: RootCertDownload,
-    meta: { requiresAuth: true, roles: ['admin'] }, // 需登录+管理员权限
-    children: [
-      { path: 'root', name: 'RootCertDownload', component: RootCertDownload },
-      { path: 'manager', name: 'CertManager', component: CertManager },
-      { path: 'generate-csr', name: 'GenerateCSR', component: GenerateCSR }
-    ]
+    name: 'CertCenter',
+    component: CertCenter,
+    meta: {
+      title: '证书管理中心',
+      requiresAuth: true
+    }
   },
   {
     path: '/login/certificate',
     name: 'CertificateLogin',
-    component: CertificateLogin,
+    component: () => import('@/pages/auth/CertificateLogin.vue'),
     meta: {
       hideLayout: true,
       requiresAuth: false
-    }
-  },
-  {
-    path: '/cert-merge',
-    name: 'CertMerge',
-    component: () => import('@/pages/cert/CertMerge.vue'),
-    meta: {
-      title: '证书合并',
-      requiresAuth: true
     }
   }
 ];

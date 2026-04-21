@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\Lenovo\Documents\GitHub\group_work-main\venv
+set VIRTUAL_ENV=C:\Users\Lenovo\Documents\GitHub\新建文件夹\group_work\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

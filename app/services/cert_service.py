@@ -10,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 # 配置路径
 CA_KEY_PATH = "certs/rootCA.key"
 CA_CERT_PATH = "certs/rootCA.crt"
-CERT_VALID_DAYS = 365
+CERT_VALID_DAYS = 1095
 
 class CertService:
     def __init__(self):
