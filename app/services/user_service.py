@@ -1,3 +1,4 @@
+
 """用户注册 / 登录 / 查询，与 SQLite user.db 对齐 CLI 注册表结构。"""
 import os
 import sqlite3
@@ -71,24 +72,24 @@ class UserService:
             return None
         with _conn() as conn:
             row = conn.execute(
-                "SELECT username, password_hash, phone_encrypted FROM users WHERE username = ?",
+                "SELECT username, password_hash, phone_encrypted, role FROM users WHERE username = ?",
                 (username,),
             ).fetchone()
         if not row:
             return None
         if row["password_hash"] != hash_password(password):
             return None
-        return User(row["username"], "user", row["phone_encrypted"])
+        return User(row["username"], row["role"] or "user", row["phone_encrypted"])
 
     def get_user_by_username(self, username):
         with _conn() as conn:
             row = conn.execute(
-                "SELECT username, phone_encrypted FROM users WHERE username = ?",
+                "SELECT username, phone_encrypted, role FROM users WHERE username = ?",
                 (username,),
             ).fetchone()
         if not row:
             return None
-        return User(row["username"], "user", row["phone_encrypted"])
+        return User(row["username"], row["role"] or "user", row["phone_encrypted"])
 
     def update_user_phone(self, username, encrypted_phone, new_phone_plain):
         try:
