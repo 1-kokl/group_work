@@ -1,5 +1,15 @@
 <template>
   <div class="cert-center">
+    <!-- 返回按钮 -->
+    <el-button
+      type="text"
+      class="back-btn"
+      @click="goBackToNavigation"
+    >
+      <el-icon><ArrowLeft /></el-icon>
+      返回系统导航
+    </el-button>
+
     <!-- 顶部标题 -->
     <el-card class="header-card" shadow="hover">
       <div class="page-header">
@@ -24,21 +34,33 @@
           <el-alert
             title="提示"
             type="info"
-            description="点击下方按钮自动获取当前登录用户的证书信息"
+            description="如果还没有证书，请先点击“签发新证书”；如果已有证书，点击“获取我的证书”下载"
             show-icon
             :closable="false"
             style="margin-bottom: 20px"
           />
 
-          <el-button
-            type="primary"
-            size="large"
-            @click="fetchMyCert"
-            :loading="fetchLoading"
-            icon="Download"
-          >
-            获取我的证书
-          </el-button>
+          <div class="button-group">
+            <el-button
+              type="warning"
+              size="large"
+              @click="issueNewCert"
+              :loading="issueLoading"
+              icon="Plus"
+            >
+              签发新证书
+            </el-button>
+
+            <el-button
+              type="primary"
+              size="large"
+              @click="fetchMyCert"
+              :loading="fetchLoading"
+              icon="Download"
+            >
+              获取我的证书
+            </el-button>
+          </div>
 
           <!-- 证书展示区域 -->
           <el-divider v-if="myCertContent" content-position="left">
@@ -353,9 +375,12 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import http from '@/services/http';
 import { ElMessage } from 'element-plus';
-import { Download, Check, CopyDocument, RefreshLeft, Link, Upload } from '@element-plus/icons-vue';
+import { Download, Check, CopyDocument, RefreshLeft, Link, Upload, ArrowLeft } from '@element-plus/icons-vue';
+
+const router = useRouter();
 
 // 标签页控制
 const activeTab = ref('fetch');
@@ -363,6 +388,7 @@ const currentStep = ref(0);
 
 // 获取证书相关
 const fetchLoading = ref(false);
+const issueLoading = ref(false);
 const myCertContent = ref('');
 const certInfo = ref(null);
 
@@ -397,6 +423,113 @@ const installSteps = [
     steps: '复制证书到 /usr/local/share/ca-certificates/ → 执行 sudo update-ca-certificates → 重启应用'
   }
 ];
+
+/**
+ * 返回系统导航页面
+ */
+function goBackToNavigation() {
+  router.push({ name: 'Navigation' });
+}
+
+// ==================== 签发证书功能 ====================
+
+async function issueNewCert() {
+  const username = prompt('请输入要签发证书的用户名：');
+
+  if (!username || !username.trim()) {
+    ElMessage.warning('⚠️ 用户名不能为空');
+    return;
+  }
+
+  issueLoading.value = true;
+  try {
+    console.log('[签发证书] 开始签发，用户名:', username.trim());
+
+    const res = await http.post('/api/cert/issue', {
+      username: username.trim()
+    });
+
+    console.log('[签发证书] 原始响应:', res);
+    console.log('[签发证书] res.code:', res?.code);
+    console.log('[签发证书] res.data:', res?.data);
+
+    // http.js 已经返回了 response.data，所以 res 就是后端的整个 JSON 响应
+    const responseData = res;
+
+    console.log('[签发证书] 解析后的数据:', responseData);
+    console.log('[签发证书] responseData.code:', responseData?.code);
+    console.log('[签发证书] responseData.data:', responseData?.data);
+
+    if (responseData.code === 200 && responseData.data) {
+      const certData = responseData.data;
+
+      console.log('[签发证书] 证书数据:', certData);
+      console.log('[签发证书] 证书长度:', certData.certificate?.length);
+      console.log('[签发证书] 私钥长度:', certData.private_key?.length);
+
+      // 显示证书信息
+      certInfo.value = {
+        username: certData.username,
+        serial_number: certData.serial_number,
+        not_before: certData.not_before,
+        not_after: certData.not_after
+      };
+
+      myCertContent.value = certData.certificate;
+
+      ElMessage.success('✅ 证书签发成功！');
+      currentStep.value = 1;
+
+      // 自动下载证书
+      setTimeout(() => {
+        downloadCertWithKey(certData);
+      }, 500);
+    } else {
+      console.error('[签发证书] 失败，响应数据:', responseData);
+      throw new Error(responseData.msg || '签发失败');
+    }
+  } catch (err) {
+    console.error('[签发证书] 错误详情:', err);
+    console.error('[签发证书] 错误状态码:', err.status);
+    console.error('[签发证书] 错误消息:', err.message);
+
+    let errorMsg = '签发失败';
+
+    if (err.status === 401) {
+      errorMsg = '请先登录后再签发证书';
+    } else if (err.status === 500) {
+      errorMsg = '服务器内部错误：' + (err.message || '未知错误');
+    } else if (err.status === 400) {
+      errorMsg = '请求参数错误：' + (err.message || '用户名格式不正确');
+    } else {
+      errorMsg = '签发失败：' + (err.message || '未知错误');
+    }
+
+    ElMessage.error('❌ ' + errorMsg);
+  } finally {
+    issueLoading.value = false;
+  }
+}
+
+function downloadCertWithKey(certData) {
+  const fullCert = `-----BEGIN PRIVATE KEY-----
+${certData.private_key.match(/-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/)?.[1] || ''}
+-----END PRIVATE KEY-----
+
+${certData.certificate}`;
+
+  const blob = new Blob([fullCert], { type: 'application/x-pem-file' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${certData.username}_certificate_${new Date().getTime()}.pem`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  ElMessage.success('✅ 证书文件已下载，请妥善保管！');
+}
 
 // ==================== 获取证书功能 ====================
 
@@ -704,10 +837,12 @@ function formatTime(isoString) {
   });
 }
 
+
 function isExpired(expiredAt) {
   if (!expiredAt) return false;
   return new Date(expiredAt) < new Date();
 }
+
 </script>
 
 <style scoped>
@@ -752,6 +887,13 @@ function isExpired(expiredAt) {
   flex-wrap: wrap;
 }
 
+.button-group {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
 .form-tip {
   margin-top: 8px;
   font-size: 12px;
@@ -774,6 +916,15 @@ function isExpired(expiredAt) {
 :deep(.el-timeline-item__content) {
   width: 100%;
 }
+
+.back-btn {
+  margin-bottom: 20px;
+}
+
+.back-btn {
+  margin-bottom: 20px;
+}
 </style>
+
 
 

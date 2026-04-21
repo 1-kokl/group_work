@@ -233,6 +233,36 @@ const actions = {
     }
   },
 
+  async loginWithCert({ commit, dispatch }, payload) {
+    const { token, refreshToken, expiresIn, certInfo } = payload;
+
+    if (!token) {
+      throw new Error('证书登录返回的 Token 无效');
+    }
+
+    const expiresAt = Date.now() + (expiresIn || 7200) * 1000;
+
+    commit('SET_TOKENS', {
+      token,
+      refreshToken: refreshToken || null,
+      expiresAt
+    });
+
+    const user = {
+      username: certInfo?.subjectCN || '证书用户',
+      role: 'user',
+      authMethod: 'certificate',
+      certThumbprint: certInfo?.thumbprint
+    };
+
+    commit('SET_USER', user);
+    commit('SET_STATUS', 'authenticated');
+
+    await dispatch('user/setProfile', user, { root: true });
+
+    return user;
+  },
+
   async forceLogout({ commit, dispatch }) {
     commit('RESET_AUTH');
     dispatch('user/clearProfile', null, { root: true });

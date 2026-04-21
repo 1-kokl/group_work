@@ -32,7 +32,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router';
-import { Menu, UserFilled, DataAnalysis } from '@element-plus/icons-vue';
+import { Menu, UserFilled, DataAnalysis, Key } from '@element-plus/icons-vue';
 
 const router = useRouter();
 
@@ -46,8 +46,24 @@ const sections = [
     theme: 'theme-purple'
   },
   {
+    title: '证书管理中心',
+    desc: '获取、测试、合并和管理您的数字证书。',
+    icon: Key,
+    route: 'CertCenter',
+    button: '证书中心',
+    theme: 'theme-orange'
+  },
+  {
+    title: '证书登录',
+    desc: '使用数字证书进行强认证安全登录。',
+    icon: Key,
+    route: 'CertificateLogin',
+    button: '证书登录',
+    theme: 'theme-red'
+  },
+  {
     title: '个人中心',
-    desc: '静态资料卡片，可用于说明当前项目状态。',
+    desc: '查看和编辑个人资料信息。',
     icon: UserFilled,
     route: 'Profile',
     button: '个人中心',
@@ -143,6 +159,16 @@ function go(name) {
 
 .nav-card.theme-blue {
   background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+  color: #fff;
+}
+
+.nav-card.theme-orange {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: #fff;
+}
+
+.nav-card.theme-red {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
   color: #fff;
 }
 

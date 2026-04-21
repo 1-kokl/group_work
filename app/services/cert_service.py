@@ -110,6 +110,8 @@ class CertService:
         验证客户端证书：是否由本CA签发 + 有效期检查
         供登录接口调用
         """
+        from cryptography.hazmat.primitives.asymmetric import padding
+        
         with open(root_ca_path, "rb") as f:
             root_ca = x509.load_pem_x509_certificate(f.read(), default_backend())
 
@@ -126,9 +128,11 @@ class CertService:
             root_ca.public_key().verify(
                 client_cert.signature,
                 client_cert.tbs_certificate_bytes,
+                padding.PKCS1v15(),
                 hashes.SHA256()
             )
-        except Exception:
+        except Exception as e:
+            print(f"[DEBUG] 证书验证失败原因: {str(e)}")
             raise Exception("证书非法：非本平台CA签发")
 
         now = datetime.utcnow()

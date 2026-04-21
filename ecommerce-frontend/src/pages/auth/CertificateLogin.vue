@@ -1,6 +1,16 @@
 <template>
   <div class="auth-container">
     <div class="auth-card">
+      <!-- 返回按钮 -->
+      <el-button
+        type="text"
+        class="back-btn"
+        @click="goBackToNavigation"
+      >
+        <el-icon><ArrowLeft /></el-icon>
+        返回系统导航
+      </el-button>
+
       <header class="auth-header">
         <h1>证书强认证登录</h1>
         <p>请选择已安装的数字证书完成身份验证</p>
@@ -12,10 +22,36 @@
           type="info"
           show-icon
           title="温馨提示"
-          description="请确保已安装平台颁发的数字证书，且证书未过期/吊销"
+          description="请上传平台颁发的数字证书文件（.pem/.crt格式），或从系统证书存储中选择"
           class="cert-alert"
         />
 
+        <!-- 方式一：文件上传 -->
+        <el-upload
+          class="cert-upload"
+          drag
+          action="#"
+          :auto-upload="false"
+          :on-change="handleCertFileUpload"
+          :before-upload="beforeCertUpload"
+          accept=".pem,.crt,.cer,.der"
+          :limit="1"
+        >
+          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+          <div class="el-upload__text">
+            拖拽证书文件到此处，或 <em>点击上传</em>
+          </div>
+          <template #tip>
+            <div class="el-upload__tip">
+              支持 .pem/.crt/.cer 格式，文件大小不超过 10KB
+            </div>
+          </template>
+        </el-upload>
+
+        <!-- 分隔线 -->
+        <el-divider>或</el-divider>
+
+        <!-- 方式二：检测系统证书 -->
         <el-button
           type="primary"
           class="cert-detect-btn"
@@ -23,7 +59,7 @@
           @click="detectCertificates"
         >
           <el-icon><Key /></el-icon>
-          检测本地数字证书
+          检测系统证书存储
         </el-button>
 
         <!-- 证书列表 -->
@@ -44,7 +80,7 @@
 
         <el-empty
           v-if="certList.length === 0 && !detectingCert && certDetected"
-          description="未检测到有效数字证书，请先安装平台颁发的证书"
+          description="未检测到有效数字证书，请使用文件上传方式"
         />
       </div>
 
@@ -57,6 +93,7 @@
             <li><span class="label">证书序列号：</span>{{ selectedCert.serialNumber }}</li>
             <li><span class="label">颁发机构：</span>{{ selectedCert.issuerCN }}</li>
             <li><span class="label">有效期至：</span>{{ selectedCert.validTo }}</li>
+            <li><span class="label">指纹：</span>{{ selectedCert.thumbprint?.substring(0, 16) }}...</li>
           </ul>
         </div>
 
@@ -93,13 +130,12 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router'; // 正确
-import { useStore } from 'vuex'; // 保留（仅导入一次）
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
-import { Key, Shield } from '@element-plus/icons-vue';
-import { sanitizeInput } from '../../utils/security';
-import { requestWithCert } from '../../services/certAuth'; // 证书认证请求工具
+import { Key, Shield, UploadFilled, ArrowLeft } from '@element-plus/icons-vue';
+import http from '@/services/http';
 
 // 状态管理
 const detectingCert = ref(false);
@@ -107,46 +143,144 @@ const certDetected = ref(false);
 const certSelected = ref(false);
 const verifyingCert = ref(false);
 const errorMessage = ref('');
-const certList = ref([]); // 检测到的证书列表
+const certList = ref([]);
 const selectedCert = ref(null);
+const uploadedCertContent = ref('');
 
 const router = useRouter();
 const store = useStore();
 
 /**
- * 模拟检测本地数字证书（实际需对接浏览器/系统证书接口）
- * 生产环境需使用 WebCrypto API/平台提供的证书插件
+ * 返回系统导航页面
+ */
+function goBackToNavigation() {
+  router.push({ name: 'Navigation' });
+}
+
+/**
+ * 文件上传前的验证
+ */
+function beforeCertUpload(file) {
+  const isValidType = ['.pem', '.crt', '.cer', '.der'].some(ext =>
+    file.name.toLowerCase().endsWith(ext)
+  );
+  const isLt10K = file.size / 1024 < 10;
+
+  if (!isValidType) {
+    ElMessage.error('只能上传 .pem/.crt/.cer/.der 格式的证书文件！');
+    return false;
+  }
+  if (!isLt10K) {
+    ElMessage.error('证书文件大小不能超过 10KB！');
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 处理证书文件上传
+ */
+async function handleCertFileUpload(uploadFile) {
+  try {
+    errorMessage.value = '';
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      const certContent = e.target.result;
+      uploadedCertContent.value = certContent;
+
+      // 解析证书基本信息
+      const certInfo = await parseCertificateInfo(certContent);
+
+      if (certInfo) {
+        selectedCert.value = {
+          ...certInfo,
+          certContent: certContent,
+          source: 'file'
+        };
+        certSelected.value = true;
+        ElMessage.success('✅ 证书文件加载成功');
+      } else {
+        ElMessage.error('❌ 无法解析证书文件，请确认格式正确');
+      }
+    };
+
+    reader.onerror = () => {
+      ElMessage.error('❌ 读取证书文件失败');
+    };
+
+    reader.readAsText(uploadFile.raw);
+  } catch (error) {
+    errorMessage.value = '证书文件处理失败：' + error.message;
+    ElMessage.error(errorMessage.value);
+  }
+}
+
+/**
+ * 解析证书信息（简化版，实际应使用 crypto API）
+ */
+async function parseCertificateInfo(certContent) {
+  try {
+    const cleanCert = certContent.trim();
+
+    let subjectCN = '未知';
+    const issuerCN = '未知';
+    const serialNumber = '未知';
+
+    const cnMatch = cleanCert.match(/CN\s*=\s*([^\n,]+)/);
+    if (cnMatch) {
+      subjectCN = cnMatch[1].trim();
+    }
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(cleanCert);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const thumbprint = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+    return {
+      subjectCN: subjectCN,
+      issuerCN: issuerCN,
+      serialNumber: `FILE-${thumbprint.substring(0, 16)}`,
+      thumbprint: thumbprint,
+      validFrom: new Date().toISOString(),
+      validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+    };
+  } catch (error) {
+    console.error('解析证书失败:', error);
+    return null;
+  }
+}
+
+function extractCertificateOnly(content) {
+  const certMatch = content.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/);
+  if (certMatch) {
+    return certMatch[0];
+  }
+  return content;
+}
+
+/**
+ * 检测系统证书存储（需要浏览器支持）
  */
 const detectCertificates = async () => {
   try {
     detectingCert.value = true;
     errorMessage.value = '';
 
-    // 实际场景：调用证书插件/浏览器 API 获取本地证书列表
-    // 此处为模拟数据，需替换为真实证书检测逻辑
-    const mockCertList = [
-      {
-        subjectCN: '电商平台-张三-运营管理员',
-        serialNumber: '1234567890ABCDEF',
-        issuerCN: '电商平台CA中心',
-        validFrom: '2024-01-01',
-        validTo: '2025-01-01',
-        thumbprint: 'mock-thumbprint-1'
-      },
-      {
-        subjectCN: '电商平台-李四-财务',
-        serialNumber: '0987654321FEDCBA',
-        issuerCN: '电商平台CA中心',
-        validFrom: '2024-02-01',
-        validTo: '2025-02-01',
-        thumbprint: 'mock-thumbprint-2'
-      }
-    ];
+    if ('credentials' in navigator && window.PublicKeyCredential) {
+      console.log('浏览器支持 WebAuthn，但不支持直接读取 X.509 证书');
+    }
 
-    certList.value = mockCertList;
+    ElMessage.warning({
+      message: '浏览器无法直接访问系统证书存储，请使用上方的文件上传方式',
+      duration: 5000
+    });
+
     certDetected.value = true;
+    certList.value = [];
   } catch (error) {
-    errorMessage.value = '证书检测失败：' + (error.message || '请检查证书驱动/插件');
+    errorMessage.value = '证书检测失败：' + (error.message || '浏览器不支持此功能');
     certList.value = [];
   } finally {
     detectingCert.value = false;
@@ -169,7 +303,10 @@ const onCertSelect = (cert) => {
 const resetCertSelection = () => {
   certSelected.value = false;
   selectedCert.value = null;
+  uploadedCertContent.value = '';
   errorMessage.value = '';
+  certDetected.value = false;
+  certList.value = [];
 };
 
 /**
@@ -185,34 +322,82 @@ const verifyCertificate = async () => {
     verifyingCert.value = true;
     errorMessage.value = '';
 
-    // 1. 证书合法性校验（前端预校验）
     const now = new Date();
     const validTo = new Date(selectedCert.value.validTo);
     if (validTo < now) {
       throw new Error('所选证书已过期，请联系管理员更新');
     }
 
-    // 2. 调用证书认证接口（携带证书指纹/签名）
-    const loginRes = await requestWithCert({
-      certThumbprint: selectedCert.value.thumbprint,
-      certSerial: selectedCert.value.serialNumber,
-      // 可选：添加证书签名的随机串，防止重放攻击
-      nonce: Math.random().toString(36).substring(2, 15)
+    const certContent = selectedCert.value.certContent || uploadedCertContent.value;
+
+    console.log('=== 证书登录调试信息 ===');
+    console.log('1. selectedCert:', selectedCert.value);
+    console.log('2. certContent 长度:', certContent?.length);
+    console.log('3. certContent 前200字符:', certContent?.substring(0, 200));
+
+    const pureCert = extractCertificateOnly(certContent);
+
+    console.log('4. pureCert 长度:', pureCert?.length);
+    console.log('5. pureCert 前200字符:', pureCert?.substring(0, 200));
+    console.log('6. pureCert 是否以 BEGIN 开头:', pureCert?.startsWith('-----BEGIN CERTIFICATE-----'));
+
+    if (!pureCert || pureCert.length < 50) {
+      throw new Error('证书内容无效或为空，请重新上传证书文件');
+    }
+
+    const requestData = {
+      cert: pureCert,
+      thumbprint: selectedCert.value.thumbprint,
+      serial_number: selectedCert.value.serialNumber
+    };
+
+    console.log('7. 发送的请求数据:', {
+      cert_length: requestData.cert.length,
+      thumbprint: requestData.thumbprint,
+      serial_number: requestData.serial_number
     });
 
-    // 3. 登录成功处理（同原有登录逻辑）
-    await store.dispatch('auth/loginWithCert', {
-      certInfo: selectedCert.value,
-      token: loginRes.token,
-      refreshToken: loginRes.refreshToken
+    const loginRes = await http.post('/api/cert/cert-login', requestData, {
+      skipAuthRefresh: true,
+      suppressErrorEvent: true
     });
 
-    ElMessage.success('证书验证成功，已完成强认证登录');
-    router.replace({ name: 'Navigation' });
+    console.log('8. 后端响应:', loginRes);
+
+    // http.js 已经返回了 response.data，所以 loginRes 就是后端的 JSON 数据
+    const responseData = loginRes;
+
+    console.log('9. 解析后的数据:', responseData);
+    console.log('10. code:', responseData?.code);
+    console.log('11. data:', responseData?.data);
+
+    if (responseData.code === 200 && responseData.data?.access_token) {
+      await store.dispatch('auth/loginWithCert', {
+        certInfo: selectedCert.value,
+        token: responseData.data.access_token,
+        refreshToken: responseData.data.refresh_token || null,
+        expiresIn: responseData.data.expires_in || 7200
+      });
+
+      ElMessage.success('✅ 证书验证成功，已完成强认证登录');
+
+      setTimeout(() => {
+        router.replace({ name: 'CertCenter' });
+      }, 500);
+    } else {
+      console.error('[证书登录] 失败原因:', responseData);
+      throw new Error(responseData.msg || '证书验证失败');
+    }
   } catch (error) {
+    console.error('=== 证书登录错误详情 ===');
+    console.error('错误对象:', error);
+    console.error('错误消息:', error.message);
+    console.error('错误状态码:', error.status);
+
     errorMessage.value =
       error.message ||
       '证书验证失败：证书无效/已吊销/权限不足，请联系管理员';
+    ElMessage.error(errorMessage.value);
   } finally {
     verifyingCert.value = false;
   }
@@ -220,7 +405,6 @@ const verifyCertificate = async () => {
 </script>
 
 <style scoped>
-/* 复用原有登录页样式基础，新增证书相关样式 */
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -230,13 +414,27 @@ const verifyCertificate = async () => {
   padding: 24px;
 }
 
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-size: 14px;
+  color: #6b7280;
+  z-index: 10;
+}
+
+.back-btn:hover {
+  color: #3b57ff;
+}
+
 .auth-card {
   width: 100%;
-  max-width: 520px;
+  max-width: 560px;
   background: #fff;
   border-radius: 16px;
   padding: 32px 36px;
   box-shadow: 0 20px 40px -24px rgba(59, 87, 255, 0.45);
+  position: relative;
 }
 
 .auth-header {
@@ -256,7 +454,6 @@ const verifyCertificate = async () => {
   font-size: 14px;
 }
 
-/* 证书选择区域 */
 .cert-select-section {
   display: flex;
   flex-direction: column;
@@ -267,16 +464,24 @@ const verifyCertificate = async () => {
   margin-bottom: 8px;
 }
 
+.cert-upload {
+  width: 100%;
+}
+
+.cert-upload :deep(.el-upload-dragger) {
+  padding: 30px 20px;
+}
+
 .cert-detect-btn {
   height: 44px;
   font-size: 16px;
+  width: 100%;
 }
 
 .cert-select {
   margin-top: 8px;
 }
 
-/* 证书验证区域 */
 .cert-verify-section {
   display: flex;
   flex-direction: column;
@@ -304,14 +509,22 @@ const verifyCertificate = async () => {
   gap: 8px;
 }
 
+.cert-info-list li {
+  font-size: 14px;
+  word-break: break-all;
+}
+
 .cert-info-list .label {
   font-weight: 600;
   color: #374151;
+  display: inline-block;
+  min-width: 80px;
 }
 
 .cert-verify-btn {
   height: 44px;
   font-size: 16px;
+  width: 100%;
 }
 
 .cert-back-btn {
@@ -323,7 +536,6 @@ const verifyCertificate = async () => {
   margin-top: 16px;
 }
 
-/* 响应式适配 */
 @media (max-width: 600px) {
   .auth-card {
     padding: 24px;
