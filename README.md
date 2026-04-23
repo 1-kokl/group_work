@@ -227,40 +227,6 @@ npm run serve
 - **API 文档**: http://localhost:5000/docs/
 - **后端健康检查**: http://localhost:5000/api/health
 
----
-
-## 📝 API 接口说明
-
-### 认证接口
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| POST | `/api/v1/auth/login` | 用户登录 | ❌ |
-| POST | `/api/v1/auth/register` | 用户注册 | ❌ |
-| POST | `/api/v1/auth/refresh` | 刷新 Token | ❌ |
-| POST | `/api/v1/auth/logout` | 注销登录 | ✅ |
-
-### 证书接口
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| GET | `/api/cert/ca` | 获取 CA 根证书 | ❌ |
-| POST | `/api/cert/issue` | 签发用户证书 | ✅ |
-| POST | `/api/cert/cert-login` | 证书登录 | ❌ |
-| GET | `/api/cert/get` | 获取用户证书 | ✅ |
-| POST | `/api/cert/test` | 测试证书格式 | ❌ |
-| POST | `/api/cert/merge` | 合并证书链 | ❌ |
-
-### 用户接口
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| GET | `/api/v1/users/me` | 获取当前用户信息 | ✅ |
-| PATCH | `/api/v1/users/me/phone` | 更新手机号 | ✅ |
-
-> 详细 API 文档请访问：http://localhost:5000/docs/
-
----
 
 ## 🔐 证书认证流程
 
