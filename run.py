@@ -27,6 +27,14 @@ def init_crypto_services():
     sm4_service = SM4Service()
     print("✅ 国密加密服务初始化成功")
 
+# ========== 初始化电商数据表 ==========
+def init_ecommerce_db():
+    try:
+        from init_ecommerce_db import init_ecommerce_tables
+        init_ecommerce_tables()
+    except Exception as e:
+        print(f"⚠️ 电商数据表初始化警告: {e}")
+
 # ========== Flask启动函数 ==========
 def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=False)
@@ -56,6 +64,9 @@ def main():
         # 初始化数据库表
         print("初始化数据库...")
         Base.metadata.create_all(bind=engine)
+        
+        # 初始化电商数据表
+        init_ecommerce_db()
 
         # 多线程同时运行Flask服务和命令行菜单
         flask_thread = threading.Thread(target=run_flask)
