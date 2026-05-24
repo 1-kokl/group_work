@@ -54,7 +54,12 @@ def init_ecommerce_tables():
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            paid_at TIMESTAMP
+            paid_at TIMESTAMP,
+            payment_status TEXT DEFAULT 'unpaid',
+            payment_method TEXT,
+            transaction_id TEXT,
+            payment_sign TEXT,
+            payment_timestamp INTEGER
         )
     """)
 

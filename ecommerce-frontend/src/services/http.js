@@ -231,10 +231,28 @@ http.interceptors.request.use(
     activeRequests += 1;
     emitLoadingEvent();
 
-    const token = storage?.getItem(TOKEN_KEY);
+    // 修复：尝试多种方式获取 token
+    let token = storage?.getItem(TOKEN_KEY);
+
+    // 如果直接获取失败，尝试从 auth 模块的存储格式获取
+    if (!token) {
+      try {
+        const authState = storage?.getItem('vuex');
+        if (authState) {
+          const parsed = JSON.parse(authState);
+          token = parsed?.auth?.token;
+        }
+      } catch (e) {
+        console.warn('[HTTP] 无法从 Vuex 状态获取 token');
+      }
+    }
+
     if (token && !config.headers?.Authorization) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[HTTP] 添加 Authorization Header:', token.substring(0, 20) + '...');
+    } else if (!token) {
+      console.warn('[HTTP] 未找到 Token，请求将不带认证信息');
     }
 
     const csrfToken = getCsrfToken();
@@ -270,6 +288,14 @@ http.interceptors.response.use(
 
     const reqUrl = String(config.url || '');
     const isRefreshCall = reqUrl.includes('/api/v1/auth/refresh');
+
+    // 详细错误日志
+    console.error('[HTTP Response Error]', {
+      status,
+      url: config.url,
+      method: config.method,
+      responseData: error?.response?.data
+    });
 
     if (
       status === 401 &&
@@ -310,6 +336,7 @@ http.interceptors.response.use(
     }
 
     if (status === 401) {
+      console.warn('[HTTP] Token 已过期，清除认证信息');
       clearTokens();
       emitTokenEvent(null, 'auth:token-expired');
     }

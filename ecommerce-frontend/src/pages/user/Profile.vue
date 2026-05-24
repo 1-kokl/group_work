@@ -69,6 +69,9 @@
             <el-button plain block @click="go('Dashboard')">
               仪表盘（静态）
             </el-button>
+            <el-button type="success" plain block @click="go('Orders')">
+              📦 我的订单
+            </el-button>
           </div>
         </el-card>
 

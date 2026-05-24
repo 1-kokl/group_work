@@ -79,6 +79,13 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paid_at = db.Column(db.DateTime, comment="支付时间")
+    
+    # 支付相关字段
+    payment_status = db.Column(db.String(20), default="unpaid", comment="支付状态：unpaid/paying/paid/failed")
+    payment_method = db.Column(db.String(50), comment="支付方式：bank_transfer/alipay/wechat")
+    transaction_id = db.Column(db.String(100), comment="银行交易号")
+    payment_sign = db.Column(db.Text, comment="支付签名")
+    payment_timestamp = db.Column(db.Integer, comment="支付时间戳")
 
     # 关系
     items = db.relationship("OrderItem", backref="order", lazy=True)

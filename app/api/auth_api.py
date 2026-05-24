@@ -21,7 +21,8 @@ def login():
 
     tokens = jwt_service.generate_tokens(
         username=user.username,
-        role=user.role
+        role=user.role,
+        user_id=user.id
     )
     return api_response(200, "登录成功", {
         "access_token": tokens["access_token"],

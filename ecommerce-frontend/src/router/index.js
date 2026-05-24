@@ -89,6 +89,25 @@ const routes = [
       hideLayout: true,
       requiresAuth: false
     }
+  },
+  {
+    path: '/payment/:orderId',
+    name: 'Payment',
+    component: () => import('@/pages/payment/PaymentPage.vue'),
+    meta: {
+      title: '支付',
+      requiresAuth: true,
+      hideLayout: true
+    }
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('@/pages/order/OrderList.vue'),
+    meta: {
+      title: '我的订单',
+      requiresAuth: true
+    }
   }
 ];
 

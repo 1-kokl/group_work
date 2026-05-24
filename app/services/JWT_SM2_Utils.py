@@ -70,14 +70,17 @@ class JWTSM2Service:
         except Exception as e:
             raise RuntimeError(f"Token验证失败: {str(e)}")
 
-    def generate_tokens(self, username, role="user"):
-        access_token = self.generate_token(
-            {"username": username, "role": role}, expires_in=3600
-        )
-        refresh_token = self.generate_token(
-            {"username": username, "role": role, "typ": "refresh"},
-            expires_in=604800,
-        )
+    def generate_tokens(self, username, role="user", user_id=None):
+        payload = {"username": username, "role": role}
+        if user_id is not None:
+            payload["user_id"] = user_id
+        
+        access_token = self.generate_token(payload, expires_in=3600)
+        refresh_payload = {"username": username, "role": role, "typ": "refresh"}
+        if user_id is not None:
+            refresh_payload["user_id"] = user_id
+        refresh_token = self.generate_token(refresh_payload, expires_in=604800)
+        
         return {"access_token": access_token, "refresh_token": refresh_token}
 
     def refresh_access_token(self, refresh_token):

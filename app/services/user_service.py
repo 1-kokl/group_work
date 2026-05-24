@@ -34,9 +34,10 @@ _ensure_table()
 
 
 class User:
-    __slots__ = ("username", "role", "phone_encrypted")
+    __slots__ = ("id", "username", "role", "phone_encrypted")
 
-    def __init__(self, username, role, phone_encrypted):
+    def __init__(self, user_id, username, role, phone_encrypted):
+        self.id = user_id
         self.username = username
         self.role = role
         self.phone_encrypted = phone_encrypted
@@ -72,24 +73,24 @@ class UserService:
             return None
         with _conn() as conn:
             row = conn.execute(
-                "SELECT username, password_hash, phone_encrypted, role FROM users WHERE username = ?",
+                "SELECT id, username, password_hash, phone_encrypted, role FROM users WHERE username = ?",
                 (username,),
             ).fetchone()
         if not row:
             return None
         if row["password_hash"] != hash_password(password):
             return None
-        return User(row["username"], row["role"] or "user", row["phone_encrypted"])
+        return User(row["id"], row["username"], row["role"] or "user", row["phone_encrypted"])
 
     def get_user_by_username(self, username):
         with _conn() as conn:
             row = conn.execute(
-                "SELECT username, phone_encrypted, role FROM users WHERE username = ?",
+                "SELECT id, username, phone_encrypted, role FROM users WHERE username = ?",
                 (username,),
             ).fetchone()
         if not row:
             return None
-        return User(row["username"], row["role"] or "user", row["phone_encrypted"])
+        return User(row["id"], row["username"], row["role"] or "user", row["phone_encrypted"])
 
     def update_user_phone(self, username, encrypted_phone, new_phone_plain):
         try:

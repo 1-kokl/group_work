@@ -8,6 +8,7 @@ from app.api import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
 from app.routes import register_blueprints
+from app import db
 
 # ========== 初始化数据库 ==========
 engine = create_engine('sqlite:///user.db')
@@ -15,6 +16,14 @@ Base = declarative_base()
 
 # ========== 初始化Flask应用 ==========
 app = Flask(__name__)
+
+# 配置数据库
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# 初始化 SQLAlchemy
+db.init_app(app)
+
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 init_api(app)
 register_blueprints(app)
