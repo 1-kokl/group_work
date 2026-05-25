@@ -1,16 +1,17 @@
+# app/routes/cert_routes.py
 from flask import Blueprint, request, jsonify
 from app.services.cert_service import CertService
-from app.models.ca_models import Certificate
-from app import db
+# 注意：这里不要 from app import db，避免循环导入
 from app.utils.jwt_util import generate_token
 from datetime import datetime
 
+# 1. 先定义蓝图
 cert_bp = Blueprint("cert", __name__, url_prefix="/api/cert")
 cert_service = CertService()
 CA_CERT_PATH = "certs/rootCA.crt"
 
+# 2. 定义路由
 
-# 原有：获取根证书
 @cert_bp.route("/ca", methods=["GET"])
 def get_ca():
     try:
@@ -22,10 +23,10 @@ def get_ca():
     except Exception as e:
         return jsonify({"code": 500, "msg": str(e)}), 500
 
-
-# 原有：签发证书
 @cert_bp.route("/issue", methods=["POST"])
 def issue_cert():
+    # 【关键修改】在函数内部导入 db，解决循环导入问题
+    from app import db 
     from app.services.user_service import user_service
     
     data = request.get_json()
@@ -40,7 +41,7 @@ def issue_cert():
         
         cert = cert_service.issue_user_cert(username)
         
-        # 将证书信息保存到数据库
+        # 将证书信息保存到数据库 (使用原生 SQLite，如你原有代码)
         import sqlite3
         from cryptography.hazmat.primitives import hashes
         from cryptography import x509 as x509_lib
@@ -114,8 +115,6 @@ def issue_cert():
         traceback.print_exc()
         return jsonify({"code": 500, "msg": str(e)}), 500
 
-
-# 新增：证书登录接口（核心）
 @cert_bp.route("/cert-login", methods=["POST"])
 def cert_login():
     import sqlite3
@@ -196,7 +195,6 @@ def cert_login():
         print("=" * 50)
         return jsonify({"code": 401, "msg": f"认证失败：{str(e)}"}), 401
 
-
 @cert_bp.route("/get", methods=["GET"])
 def get_cert():
     """获取用户证书"""
@@ -209,7 +207,6 @@ def get_cert():
         })
     except Exception as e:
         return jsonify({"code": 500, "msg": str(e)}), 500
-
 
 @cert_bp.route("/test", methods=["POST"])
 def test_cert():
@@ -232,7 +229,6 @@ def test_cert():
         })
     except Exception as e:
         return jsonify({"code": 500, "msg": str(e)}), 500
-
 
 @cert_bp.route("/merge", methods=["POST"])
 def merge_certs():
