@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from app.routes import register_blueprints
 
 db = SQLAlchemy()
 
@@ -13,5 +14,7 @@ def create_app():
     
     # 初始化扩展
     db.init_app(app)
-    
+
+    register_blueprints(app)
+
     return app
