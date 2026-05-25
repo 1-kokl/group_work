@@ -1,7 +1,20 @@
-from .cert_routes import cert_bp
-from .ecommerce_routes import ecommerce_bp
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from app.routes import register_blueprints
 
-def register_blueprints(app):
-    """注册所有蓝图到 Flask 应用"""
-    app.register_blueprint(cert_bp)
-    app.register_blueprint(ecommerce_bp)
+db = SQLAlchemy()
+
+def create_app():
+    """应用工厂函数"""
+    app = Flask(__name__)
+    
+    # 配置数据库
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # 初始化扩展
+    db.init_app(app)
+
+    register_blueprints(app)
+
+    return app
