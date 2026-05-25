@@ -54,7 +54,9 @@ def test_payment_flow():
         },
         headers=headers
     )
-    
+    print(f"   [DEBUG] 状态码: {product_response.status_code}")
+    print(f"   [DEBUG] 响应内容: {product_response.text}")
+    print(f"   [DEBUG] 请求头: {headers}")
     if product_response.status_code in [201, 200]:
         try:
             product_data = product_response.json()
@@ -182,15 +184,47 @@ def test_payment_flow():
     else:
         print(f"⚠️ 银行处理异常: {process_response.status_code}")
     
-    # Step 8: 等待异步回调
+        # Step 8: 等待并手动触发回调
     print("\n⏳ Step 8: 等待异步回调...")
-    time.sleep(3)
+    time.sleep(2)
     
-    # Step 9: 查询订单状态
+    # 【关键修正】确保这里使用的 order_no 或 order_id 与创建订单时的一致
+    # 注意：有些系统回调用 order_no (字符串)，有些用 order_id (UUID)
+    # 我们的 pay_routes.py 里写的是 data.get('order_id')
+    # 所以这里必须传 order_id
+    
+    print(f"\n🔄 正在手动触发回调，目标订单ID: {order_id}")
+    
+    callback_data = {
+        "order_id": order_id,      # <--- 确保这里是 Step 4 拿到的 order_id
+        "transaction_id": "TXN_MOCK_123",
+        "amount": total_amount,
+        "status": "success"
+    }
+    
+    try:
+        callback_response = requests.post(
+            f"{ECOMMERCE_BASE_URL}/api/pay/callback",
+            json=callback_data,
+            headers=headers
+        )
+        
+        print(f"   回调响应状态码: {callback_response.status_code}")
+        print(f"   回调响应内容: {callback_response.text}")
+        
+        if callback_response.status_code == 200:
+            print("   ✅ 回调接口调用成功！")
+        else:
+            print("   ❌ 回调接口调用失败，请检查后端日志")
+            
+    except Exception as e:
+        print(f"   ❌ 回调请求异常: {e}")
+
+    # Step 9: 查询订单支付状态...
     print("\n🔍 Step 9: 查询订单支付状态...")
     order_status_response = requests.get(
-        f"{ECOMMERCE_BASE_URL}/api/ecommerce/orders/{order_id}",
-        headers=headers
+       f"{ECOMMERCE_BASE_URL}/api/ecommerce/orders/{order_id}",
+       headers=headers
     )
     
     if order_status_response.status_code == 200:
