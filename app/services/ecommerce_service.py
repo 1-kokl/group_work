@@ -2,7 +2,7 @@ import sqlite3
 import os
 from datetime import datetime
 from app.models.ecommerce_models import Product, Cart, Order, OrderItem
-from app import db
+from app.extensions import db
 
 
 class ProductService:

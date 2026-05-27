@@ -7,8 +7,8 @@ from flask_cors import CORS
 from app.api import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
-from app.routes import register_blueprints
-from app import db
+from app.routes._init_ import register_blueprints
+from app.extensions import db
 
 # ========== 初始化数据库 ==========
 engine = create_engine('sqlite:///user.db')

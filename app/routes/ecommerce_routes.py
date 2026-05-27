@@ -1,133 +1,256 @@
-# app/routes/ecommerce_routes.py
-from flask import Blueprint, jsonify, request
-from datetime import datetime
-import uuid
+from flask import Blueprint, request
+from app.services.ecommerce_service import ProductService, CartService, OrderService
+from app.middleware.jwt_auth import jwt_required
+from app.utils.response import api_response
 
-# 创建蓝图
-ecommerce_bp = Blueprint('ecommerce', __name__, url_prefix='/api/ecommerce')
+ecommerce_bp = Blueprint("ecommerce", __name__, url_prefix="/api/ecommerce")
 
-# --- 模拟数据库 ---
-products_db = []
-carts_db = {}
-orders_db = {}
 
-@ecommerce_bp.route('/test', methods=['GET'])
-def test():
-    return jsonify({
-        "code": 200,
-        "msg": "Ecommerce routes loaded successfully"
-    })
+# ==================== 商品管理接口 ====================
 
-@ecommerce_bp.route('/products', methods=['POST'])
+@ecommerce_bp.route("/products", methods=["POST"])
+@jwt_required
 def create_product():
+    """创建商品（需要管理员权限）"""
     data = request.get_json()
-    if not data or not data.get('name'):
-        return jsonify({"code": 400, "msg": "缺少商品名称"}), 400
     
-    product = {
-        "id": str(uuid.uuid4()),
-        "name": data.get('name'),
-        "price": float(data.get('price', 0)),
-        "stock": int(data.get('stock', 0)),
-        "description": data.get('description', ''),
-        "created_at": datetime.utcnow().isoformat()
-    }
-    products_db.append(product)
-    return jsonify({"code": 201, "msg": "创建成功", "data": product}), 201
+    name = data.get("name")
+    price = data.get("price")
+    
+    if not name or price is None:
+        return api_response(400, "商品名称和价格不能为空")
+    
+    if price <= 0:
+        return api_response(400, "价格必须大于0")
 
-@ecommerce_bp.route('/products', methods=['GET'])
+    result = ProductService.create_product(
+        name=name,
+        price=price,
+        description=data.get("description"),
+        stock=data.get("stock", 0),
+        category=data.get("category"),
+        image_url=data.get("image_url"),
+        created_by=request.user_info.get("user_id")
+    )
+
+    if result["success"]:
+        return api_response(201, result["msg"], result["data"])
+    else:
+        return api_response(500, result["msg"])
+
+
+@ecommerce_bp.route("/products", methods=["GET"])
 def list_products():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    
-    start = (page - 1) * per_page
-    end = start + per_page
-    items = products_db[start:end]
-    
-    return jsonify({
-        "code": 200,
-        "data": {
-            "items": items,
-            "total": len(products_db),
-            "page": page,
-            "per_page": per_page
-        }
-    }), 200
+    """获取商品列表"""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 10, type=int)
+    category = request.args.get("category")
+    status = request.args.get("status", type=bool)
+    keyword = request.args.get("keyword")
 
-@ecommerce_bp.route('/cart', methods=['POST'])
+    result = ProductService.list_products(
+        page=page,
+        per_page=per_page,
+        category=category,
+        status=status,
+        keyword=keyword
+    )
+
+    return api_response(200, "查询成功", result["data"])
+
+
+@ecommerce_bp.route("/products/<product_id>", methods=["GET"])
+def get_product(product_id):
+    """获取商品详情"""
+    result = ProductService.get_product(product_id)
+    
+    if result["success"]:
+        return api_response(200, "查询成功", result["data"])
+    else:
+        return api_response(404, result["msg"])
+
+
+@ecommerce_bp.route("/products/<product_id>", methods=["PUT"])
+@jwt_required
+def update_product(product_id):
+    """更新商品（需要管理员权限）"""
+    data = request.get_json()
+    
+    result = ProductService.update_product(product_id, **data)
+    
+    if result["success"]:
+        return api_response(200, result["msg"], result["data"])
+    else:
+        return api_response(404, result["msg"])
+
+
+@ecommerce_bp.route("/products/<product_id>", methods=["DELETE"])
+@jwt_required
+def delete_product(product_id):
+    """删除商品（软删除）"""
+    result = ProductService.delete_product(product_id)
+    
+    if result["success"]:
+        return api_response(200, result["msg"])
+    else:
+        return api_response(404, result["msg"])
+
+
+# ==================== 购物车接口 ====================
+
+@ecommerce_bp.route("/cart", methods=["POST"])
+@jwt_required
 def add_to_cart():
-    user_id = "test_user_1" 
+    """添加商品到购物车"""
     data = request.get_json()
-    product_id = data.get('product_id')
-    quantity = data.get('quantity', 1)
-    
+    product_id = data.get("product_id")
+    quantity = data.get("quantity", 1)
+
     if not product_id:
-        return jsonify({"code": 400, "msg": "缺少商品ID"}), 400
-    
-    if user_id not in carts_db:
-        carts_db[user_id] = []
-        
-    for item in carts_db[user_id]:
-        if item['product_id'] == product_id:
-            item['quantity'] += quantity
-            return jsonify({"code": 200, "msg": "购物车更新成功", "data": carts_db[user_id]}), 200
-            
-    carts_db[user_id].append({"product_id": product_id, "quantity": quantity})
-    return jsonify({"code": 200, "msg": "添加成功", "data": carts_db[user_id]}), 200
+        return api_response(400, "商品ID不能为空")
 
-@ecommerce_bp.route('/orders', methods=['POST'])
+    user_id = request.user_info.get("user_id")
+    result = CartService.add_to_cart(user_id, product_id, quantity)
+
+    if result["success"]:
+        return api_response(200, result["msg"], result["data"])
+    else:
+        return api_response(400, result["msg"])
+
+
+@ecommerce_bp.route("/cart", methods=["GET"])
+@jwt_required
+def get_cart():
+    """获取购物车列表（IDOR防护：只能查看自己的购物车）"""
+    user_id = request.user_info.get("user_id")
+    result = CartService.get_user_cart(user_id)
+    
+    return api_response(200, "查询成功", result["data"])
+
+
+@ecommerce_bp.route("/cart/<cart_id>", methods=["PUT"])
+@jwt_required
+def update_cart_item(cart_id):
+    """更新购物车项（IDOR防护：只能修改自己的购物车）"""
+    data = request.get_json()
+    user_id = request.user_info.get("user_id")
+    
+    result = CartService.update_cart_item(
+        user_id,
+        cart_id,
+        quantity=data.get("quantity"),
+        selected=data.get("selected")
+    )
+
+    if result["success"]:
+        return api_response(200, result["msg"], result["data"])
+    else:
+        return api_response(400, result["msg"])
+
+
+@ecommerce_bp.route("/cart/<cart_id>", methods=["DELETE"])
+@jwt_required
+def remove_from_cart(cart_id):
+    """从购物车移除（IDOR防护：只能删除自己的购物车项）"""
+    user_id = request.user_info.get("user_id")
+    result = CartService.remove_from_cart(user_id, cart_id)
+
+    if result["success"]:
+        return api_response(200, result["msg"])
+    else:
+        return api_response(400, result["msg"])
+
+
+@ecommerce_bp.route("/cart/clear", methods=["DELETE"])
+@jwt_required
+def clear_cart():
+    """清空购物车（IDOR防护：只能清空自己的购物车）"""
+    user_id = request.user_info.get("user_id")
+    result = CartService.clear_cart(user_id)
+
+    if result["success"]:
+        return api_response(200, result["msg"])
+    else:
+        return api_response(500, result["msg"])
+
+
+# ==================== 订单接口 ====================
+
+@ecommerce_bp.route("/orders", methods=["POST"])
+@jwt_required
 def create_order():
-    user_id = "test_user_1"
+    """从购物车创建订单（IDOR防护：只能为自己的购物车创建订单）"""
     data = request.get_json()
     
-    if user_id not in carts_db or not carts_db[user_id]:
-        return jsonify({"code": 400, "msg": "购物车为空"}), 400
+    shipping_address = data.get("shipping_address")
+    contact_phone = data.get("contact_phone")
     
-    total_amount = 0
-    order_items = []
-    for cart_item in carts_db[user_id]:
-        product = next((p for p in products_db if p['id'] == cart_item['product_id']), None)
-        if product:
-            subtotal = product['price'] * cart_item['quantity']
-            total_amount += subtotal
-            order_items.append({
-                "product_id": product['id'],
-                "product_name": product['name'],
-                "price": product['price'],
-                "quantity": cart_item['quantity'],
-                "subtotal": subtotal
-            })
-    
-    if not order_items:
-        return jsonify({"code": 400, "msg": "商品不存在"}), 400
+    if not shipping_address or not contact_phone:
+        return api_response(400, "收货地址和联系电话不能为空")
 
-    order_id = str(uuid.uuid4())
-    order_no = f"ORD{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:6]}"
-    
-    order = {
-        "id": order_id,
-        "order_no": order_no,
-        "user_id": user_id,
-        "items": order_items,
-        "total_amount": total_amount,
-        "shipping_address": data.get('shipping_address', ''),
-        "contact_phone": data.get('contact_phone', ''),
-        "remark": data.get('remark', ''),
-        "status": "pending",
-        "payment_status": "unpaid",
-        "transaction_id": None,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    
-    orders_db[order_id] = order
-    carts_db[user_id] = []
-    
-    return jsonify({"code": 201, "msg": "订单创建成功", "data": order}), 201
+    user_id = request.user_info.get("user_id")
+    result = OrderService.create_order_from_cart(
+        user_id=user_id,
+        shipping_address=shipping_address,
+        contact_phone=contact_phone,
+        remark=data.get("remark"),
+        cart_item_ids=data.get("cart_item_ids")
+    )
 
-@ecommerce_bp.route('/orders/<order_id>', methods=['GET'])
+    if result["success"]:
+        return api_response(201, result["msg"], result["data"])
+    else:
+        return api_response(400, result["msg"])
+
+
+@ecommerce_bp.route("/orders/<order_id>", methods=["GET"])
+@jwt_required
 def get_order(order_id):
-    order = orders_db.get(order_id)
-    if not order:
-        return jsonify({"code": 404, "msg": "订单不存在"}), 404
+    """获取订单详情（IDOR防护：只能查看自己的订单）"""
+    user_id = request.user_info.get("user_id")
+    result = OrderService.get_order(user_id, order_id)
+
+    if result["success"]:
+        return api_response(200, "查询成功", result["data"])
+    else:
+        return api_response(404, result["msg"])
+
+
+@ecommerce_bp.route("/orders", methods=["GET"])
+@jwt_required
+def get_user_orders():
+    """获取用户订单列表（IDOR防护：只能查看自己的订单）"""
+    user_id = request.user_info.get("user_id")
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 10, type=int)
+    status = request.args.get("status")
+
+    result = OrderService.get_user_orders(user_id, page, per_page, status)
     
-    return jsonify({"code": 200, "data": order}), 200
+    return api_response(200, "查询成功", result["data"])
+
+
+@ecommerce_bp.route("/orders/<order_id>/cancel", methods=["POST"])
+@jwt_required
+def cancel_order(order_id):
+    """取消订单（IDOR防护：只能取消自己的订单）"""
+    user_id = request.user_info.get("user_id")
+    result = OrderService.cancel_order(user_id, order_id)
+
+    if result["success"]:
+        return api_response(200, result["msg"])
+    else:
+        return api_response(400, result["msg"])
+
+
+@ecommerce_bp.route("/orders/<order_id>/pay", methods=["POST"])
+@jwt_required
+def pay_order(order_id):
+    """支付订单（IDOR防护：只能支付自己的订单）"""
+    user_id = request.user_info.get("user_id")
+    result = OrderService.pay_order(user_id, order_id)
+
+    if result["success"]:
+        return api_response(200, result["msg"])
+    else:
+        return api_response(400, result["msg"])

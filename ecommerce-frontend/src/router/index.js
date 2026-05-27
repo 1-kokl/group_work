@@ -108,6 +108,15 @@ const routes = [
       title: '我的订单',
       requiresAuth: true
     }
+  },
+  {
+    path: '/orders/:orderId',
+    name: 'OrderDetail',
+    component: () => import('@/pages/order/OrderDetail.vue'),
+    meta: {
+      title: '订单详情',
+      requiresAuth: true
+    }
   }
 ];
 

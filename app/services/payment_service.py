@@ -10,7 +10,7 @@ from datetime import datetime
 from gmssl.sm2 import CryptSM2, default_ecc_table
 from gmssl.sm3 import sm3_hash as _gmssl_sm3_hash, bytes_to_list
 from gmssl.sm4 import CryptSM4, SM4_ENCRYPT, SM4_DECRYPT
-from app import db
+from app.extensions import db
 from app.models.ecommerce_models import Order
 
 
@@ -237,31 +237,75 @@ class PaymentService:
             return {"success": False, "message": f"回调处理失败: {str(e)}"}
     
     @staticmethod
-    def handle_payment_result(encrypted_key, iv, ciphertext):
+    def process_callback_simple(order_id, transaction_id, amount, status):
         """
-        处理银行同步跳转结果（GET请求）
-        解密并展示支付结果页面
+        简化版回调处理（调试用）
+        直接更新订单状态
         """
         try:
-            decrypt_result = PaymentService.decrypt_payment_result(encrypted_key, iv, ciphertext)
+            # 查找订单
+            order = Order.query.filter_by(order_no=order_id).first()
+            if not order:
+                return {"success": False, "message": "订单不存在"}
+            
+            # 检查是否已处理
+            if order.payment_status == "paid":
+                print(f"⚠️ 订单 {order_id} 已支付，跳过重复处理")
+                return {"success": True, "message": "订单已处理"}
+            
+            # 更新订单状态
+            if status == "success":
+                order.payment_status = "paid"
+                order.status = "paid"
+                order.transaction_id = transaction_id
+                order.paid_at = datetime.utcnow()
+                db.session.commit()
+                
+                print(f"✅ 订单 {order_id} 支付成功，交易号: {transaction_id}")
+                return {"success": True, "message": "支付成功"}
+            else:
+                order.payment_status = "failed"
+                db.session.commit()
+                
+                print(f"❌ 订单 {order_id} 支付失败")
+                return {"success": False, "message": "支付失败"}
+        
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ 回调处理异常: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "message": f"处理失败: {str(e)}"}
+
+    @staticmethod
+    def handle_payment_result(encrypted_key_hex, iv_hex, ciphertext_hex):
+        """
+        处理同步跳转结果（解密银行返回的支付结果）
+        """
+        try:
+            # 解密结果
+            decrypt_result = PaymentService.decrypt_payment_result(
+                encrypted_key_hex, iv_hex, ciphertext_hex
+            )
             
             if not decrypt_result["success"]:
                 return {"success": False, "message": decrypt_result["message"]}
             
-            payment_data = decrypt_result["data"]
-            order_id = payment_data.get("order_id")
+            result_data = decrypt_result["data"]
             
-            # 查询订单
-            order = Order.query.filter_by(order_no=order_id).first()
+            # 查找订单
+            order = Order.query.filter_by(order_no=result_data.get("order_id")).first()
+            if not order:
+                return {"success": False, "message": "订单不存在"}
             
             return {
                 "success": True,
-                "data": payment_data,
-                "order": order.to_dict() if order else None
+                "data": result_data,
+                "order": order.to_dict()
             }
         
         except Exception as e:
-            return {"success": False, "message": f"结果处理失败: {str(e)}"}
+            return {"success": False, "message": f"处理失败: {str(e)}"}
 
 
 # 初始化时加载密钥

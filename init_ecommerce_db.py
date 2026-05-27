@@ -2,11 +2,17 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "user.db")
-
 
 def init_ecommerce_tables():
     """创建电商相关表"""
+    # 使用 instance 目录下的数据库文件，与 Flask 配置保持一致
+    DB_PATH = os.path.join(os.path.dirname(__file__), "instance", "user.db")
+    
+    # 确保 instance 目录存在
+    instance_dir = os.path.join(os.path.dirname(__file__), "instance")
+    if not os.path.exists(instance_dir):
+        os.makedirs(instance_dir)
+    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 

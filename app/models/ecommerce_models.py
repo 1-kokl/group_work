@@ -1,4 +1,4 @@
-from app import db
+from app.extensions import db
 from datetime import datetime
 import uuid
 
@@ -97,6 +97,9 @@ class Order(db.Model):
             "user_id": self.user_id,
             "total_amount": self.total_amount,
             "status": self.status,
+            "payment_status": self.payment_status,
+            "payment_method": self.payment_method,
+            "transaction_id": self.transaction_id,
             "shipping_address": self.shipping_address,
             "contact_phone": self.contact_phone,
             "remark": self.remark,

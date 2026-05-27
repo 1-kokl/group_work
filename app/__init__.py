@@ -1,8 +1,7 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from app.routes import register_blueprints
+from app.extensions import db
+from app.routes._init_ import register_blueprints
 
-db = SQLAlchemy()
 
 def create_app():
     """应用工厂函数"""
@@ -15,6 +14,7 @@ def create_app():
     # 初始化扩展
     db.init_app(app)
 
+    # 注册蓝图
     register_blueprints(app)
 
     return app

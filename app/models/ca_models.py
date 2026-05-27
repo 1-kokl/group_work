@@ -1,5 +1,4 @@
-# 导入db（现在100%不报红）
-from app import db
+from app.extensions import db
 from datetime import datetime
 import uuid
 

@@ -292,6 +292,36 @@ PAYMENT_PAGE_HTML = """
             font-size: 24px;
             color: #ff6b6b;
         }
+        .password-section {
+            background: #fff3cd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .password-section h4 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .password-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 18px;
+            letter-spacing: 8px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .password-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .password-hint {
+            color: #856404;
+            font-size: 12px;
+            text-align: center;
+        }
         .btn-group {
             display: flex;
             gap: 15px;
@@ -336,11 +366,32 @@ PAYMENT_PAGE_HTML = """
             margin-bottom: 20px;
             text-align: center;
         }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .loading.show {
+            display: block;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="payment-container">
-        <div class="bank-logo">🏦 模拟银行</div>
+        <div class="bank-logo">🏦 模拟银行支付网关</div>
         
         {% if error %}
         <div class="error-message">{{ error }}</div>
@@ -365,7 +416,7 @@ PAYMENT_PAGE_HTML = """
             </div>
         </div>
         
-        <form method="POST" action="/pay/process">
+        <form method="POST" action="/pay/process" id="paymentForm">
             <input type="hidden" name="order_id" value="{{ order_id }}">
             <input type="hidden" name="amount" value="{{ amount }}">
             <input type="hidden" name="merchant_id" value="{{ merchant_id }}">
@@ -373,8 +424,28 @@ PAYMENT_PAGE_HTML = """
             <input type="hidden" name="signature" value="{{ signature }}">
             <input type="hidden" name="callback_url" value="{{ callback_url }}">
             
-            <div class="btn-group">
-                <button type="button" class="btn btn-cancel" onclick="window.location.href='{{ callback_url }}?status=cancelled'">取消支付</button>
+            <div class="password-section">
+                <h4>🔐 请输入支付密码</h4>
+                <input 
+                    type="password" 
+                    name="password" 
+                    class="password-input" 
+                    placeholder="******"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    required
+                    autofocus
+                >
+                <p class="password-hint">提示：任意6位数字即可（测试环境）</p>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在处理支付...</p>
+            </div>
+            
+            <div class="btn-group" id="btnGroup">
+                <button type="button" class="btn btn-cancel" onclick="cancelPayment()">取消支付</button>
                 <button type="submit" class="btn btn-confirm">确认支付</button>
             </div>
         </form>
@@ -384,6 +455,38 @@ PAYMENT_PAGE_HTML = """
         </div>
         {% endif %}
     </div>
+    
+    <script>
+        const form = document.getElementById('paymentForm');
+        const loading = document.getElementById('loading');
+        const btnGroup = document.getElementById('btnGroup');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const password = this.querySelector('input[name="password"]').value;
+            
+            if (password.length !== 6) {
+                alert('请输入6位数字密码');
+                return;
+            }
+            
+            // 显示加载状态
+            loading.classList.add('show');
+            btnGroup.style.display = 'none';
+            
+            // 模拟处理延迟
+            setTimeout(() => {
+                form.submit();
+            }, 1500);
+        });
+        
+        function cancelPayment() {
+            if (confirm('确定要取消支付吗？')) {
+                window.location.href = 'http://localhost:8088/orders';
+            }
+        }
+    </script>
 </body>
 </html>
 """
@@ -448,11 +551,12 @@ def pay_page():
 def process_payment():
     """
     处理支付请求
-    1. 再次验签
-    2. 模拟扣款
-    3. 生成加密结果
-    4. 重定向回电商
+    1. 验证密码
+    2. 再次验签
+    3. 防重放检查
+    4. 模拟扣款
     5. 异步回调通知
+    6. 同步跳转回电商
     """
     try:
         # 获取表单数据
@@ -461,11 +565,23 @@ def process_payment():
         merchant_id = request.form.get("merchant_id")
         timestamp = request.form.get("timestamp", type=int)
         signature = request.form.get("signature")
-        callback_url = request.form.get("callback_url", "http://localhost:5000/api/pay/callback")
+        callback_url = request.form.get("callback_url", "http://localhost:5000/api/pay/result")
+        password = request.form.get("password")
         
         # 参数校验
         if not all([order_id, amount, merchant_id, timestamp, signature]):
             return jsonify({"success": False, "message": "缺少必要参数"}), 400
+        
+        # 验证密码（简单验证：6位数字）
+        if not password or len(password) != 6 or not password.isdigit():
+            return render_template_string(PAYMENT_PAGE_HTML,
+                                        order_id=order_id,
+                                        amount=amount,
+                                        merchant_id=merchant_id,
+                                        timestamp=timestamp,
+                                        signature=signature,
+                                        callback_url=callback_url,
+                                        error="支付密码格式错误，请输入6位数字")
         
         # 再次验签
         if not verify_signature(order_id, amount, merchant_id, timestamp, signature):
@@ -478,7 +594,7 @@ def process_payment():
         # 标记订单已处理
         mark_order_processed(order_id)
         
-        # 模拟扣款（这里可以接入真实的支付网关）
+        # 模拟扣款
         transaction_id = f"TXN{int(time.time())}{secrets.token_hex(4)}"
         
         # 保存交易记录
@@ -493,7 +609,7 @@ def process_payment():
         
         print(f"✅ 支付成功 - 订单: {order_id}, 交易号: {transaction_id}, 金额: {amount}")
         
-        # 【关键修改】构造简单的支付结果 JSON (不加密)
+        # 构造简单的支付结果 JSON
         payment_result = {
             "order_id": order_id,
             "transaction_id": transaction_id,
@@ -501,36 +617,45 @@ def process_payment():
             "status": "success"
         }
         
-        # 【关键修改】异步回调：直接发送简单 JSON
+        # 异步回调：通知电商后端更新订单状态
         async_callback_url = callback_url.replace("/result", "/callback")
         thread = threading.Thread(
-            target=async_callback_simple, # 调用新的简单回调函数
+            target=async_callback_simple,
             args=(async_callback_url, payment_result, order_id)
         )
         thread.daemon = True
         thread.start()
         
-        print(f"🔄 正在跳转到电商结果页...")
+        print(f"🔄 正在跳转到电商结果页: {callback_url}")
         
-        # 同步跳转页面 (保持不变)
+        # 同步跳转页面 - 使用 JavaScript 确保跳转
         return f"""
-        <script>
-            window.location.href = "{callback_url}?status=success&order_id={order_id}";
-        </script>
-        <p style="text-align:center;padding:50px;font-size:18px;">
-            ✅ 支付成功！<br><br>
-            订单号：{order_id}<br>
-            交易号：{transaction_id}<br>
-            金额：¥{amount:.2f}<br><br>
-            正在跳转回电商平台...
-        </p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>支付成功</title>
+        </head>
+        <body>
+            <div style="text-align:center;padding:50px;font-family:'Microsoft YaHei',sans-serif;">
+                <div style="font-size:80px;margin-bottom:20px;">✅</div>
+                <h2 style="color:#28a745;">支付成功！</h2>
+                <p style="font-size:18px;color:#666;margin:20px 0;">
+                    订单号：{order_id}<br>
+                    交易号：{transaction_id}<br>
+                    金额：¥{amount:.2f}
+                </p>
+                <p style="color:#999;">正在跳转回电商平台...</p>
+            </div>
+            <script>
+                // 立即跳转
+                setTimeout(function() {{
+                    window.location.href = "{callback_url}?status=success&order_id={order_id}";
+                }}, 1000);
+            </script>
+        </body>
+        </html>
         """
-    
-    except Exception as e:
-        print(f"❌ 支付处理失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"支付处理失败: {str(e)}"}), 500
     
     except Exception as e:
         print(f"❌ 支付处理失败: {e}")
