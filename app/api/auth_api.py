@@ -11,23 +11,35 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/v1/auth")
 # 接口1：用户登录（POST /api/v1/auth/login）
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
+    try:
+        data = request.get_json()
+        if not data:
+            return api_response(400, "请求数据不能为空", None)
+        
+        username = data.get("username")
+        password = data.get("password")
 
-    user = user_service.login(username, password)
-    if not user:
-        return api_response(401, user_service.error_msg, None)
+        if not username or not password:
+            return api_response(400, "用户名和密码不能为空", None)
 
-    tokens = jwt_service.generate_tokens(
-        username=user.username,
-        role=user.role,
-        user_id=user.id
-    )
-    return api_response(200, "登录成功", {
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"]
-    })
+        user = user_service.login(username, password)
+        if not user:
+            return api_response(401, user_service.error_msg or "用户名或密码错误", None)
+
+        tokens = jwt_service.generate_tokens(
+            username=user.username,
+            role=user.role,
+            user_id=user.id
+        )
+        return api_response(200, "登录成功", {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"]
+        })
+    except Exception as e:
+        print(f"❌ 登录异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return api_response(500, f"登录失败: {str(e)}", None)
 
 
 # 接口2：刷新访问令牌（POST /api/v1/auth/refresh）

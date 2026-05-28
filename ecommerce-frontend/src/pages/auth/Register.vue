@@ -297,18 +297,27 @@ async function handleSubmit() {
 
     loading.value = true;
     try {
+      console.log('[Register] 开始注册...');
+
+      // 步骤1：注册用户
       await store.dispatch('auth/register', {
         username: sanitizeInput(form.username),
         password: form.password,
         phone: sanitizeInput(form.phone)
       });
 
-      await store.dispatch('auth/login', {
+      console.log('[Register] 注册成功，准备登录...');
+
+      // 步骤2：自动登录
+      const loginResult = await store.dispatch('auth/login', {
         identifier: sanitizeInput(form.username),
         password: form.password,
         remember: false
       });
 
+      console.log('[Register] 登录结果:', loginResult);
+
+      // 步骤3：设置用户资料
       store.dispatch('user/setProfile', {
         username: sanitizeInput(form.username),
         email: sanitizeInput(form.email),
@@ -319,6 +328,7 @@ async function handleSubmit() {
       ElMessage.success('注册成功，已自动登录');
       router.replace({ name: 'Navigation' });
     } catch (error) {
+      console.error('[Register] 错误:', error);
       errorMessage.value =
         error?.message || '注册失败，请稍后再试。';
     } finally {

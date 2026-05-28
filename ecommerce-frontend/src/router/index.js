@@ -86,8 +86,10 @@ const routes = [
     name: 'CertificateLogin',
     component: () => import('@/pages/auth/CertificateLogin.vue'),
     meta: {
+      title: '证书登录',
       hideLayout: true,
-      requiresAuth: false
+      requiresAuth: false,
+      requiresGuest: false
     }
   },
   {

@@ -278,7 +278,10 @@ http.interceptors.response.use(
     if (csrfFromHeader) {
       setCsrfToken(csrfFromHeader);
     }
-    return response.data;
+
+    // 修复：保留完整的响应对象，而不是只返回 response.data
+    // 这样 authAPI 可以正确处理嵌套的数据结构
+    return response;
   },
   async (error) => {
     decrementRequest();

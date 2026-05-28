@@ -1,8 +1,6 @@
 # app/routes/cert_routes.py
 from flask import Blueprint, request, jsonify
 from app.services.cert_service import CertService
-# 注意：这里不要 from app import db，避免循环导入
-from app.utils.jwt_util import generate_token
 from datetime import datetime
 
 # 1. 先定义蓝图
@@ -43,6 +41,7 @@ def issue_cert():
         
         # 将证书信息保存到数据库 (使用原生 SQLite，如你原有代码)
         import sqlite3
+        import os
         from cryptography.hazmat.primitives import hashes
         from cryptography import x509 as x509_lib
         from cryptography.hazmat.backends import default_backend
@@ -54,8 +53,9 @@ def issue_cert():
         )
         fingerprint = cert_obj.fingerprint(hashes.SHA256()).hex()
         
-        # 获取用户 ID（从 users 表）
-        conn = sqlite3.connect('user.db')
+        # 获取用户 ID（从 users 表）- 使用绝对路径
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "user.db")
+        conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
@@ -157,36 +157,66 @@ def cert_login():
         conn = sqlite3.connect('user.db')
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        
+        # 首先查询证书信息
         cursor.execute(
             "SELECT id, user_id, fingerprint, serial_number, status, expired_at FROM certificates WHERE fingerprint = ? AND status = 1",
             (fingerprint,)
         )
-        row = cursor.fetchone()
-        conn.close()
+        cert_row = cursor.fetchone()
         
-        if not row:
+        if not cert_row:
+            conn.close()
             print(f"[ERROR] 证书未授权，指纹: {fingerprint}")
             print("=" * 50)
             return jsonify({"code": 401, "msg": "证书未授权或已禁用"}), 401
 
         # 检查证书是否过期
-        expired_at_str = row["expired_at"]
+        expired_at_str = cert_row["expired_at"]
         if expired_at_str:
             from datetime import datetime as dt
             expired_at = dt.fromisoformat(expired_at_str) if isinstance(expired_at_str, str) else expired_at
             if expired_at < dt.utcnow():
+                conn.close()
                 print(f"[ERROR] 证书已过期")
                 print("=" * 50)
                 return jsonify({"code": 401, "msg": "证书已过期"}), 401
 
-        user_id = row["user_id"]
-        token = generate_token(user_id=user_id)
-        print(f"[SUCCESS] 证书登录成功，用户ID: {user_id}")
+        # 通过 user_id 获取用户信息
+        user_id = cert_row["user_id"]
+        cursor.execute("SELECT id, username, role FROM users WHERE id = ?", (user_id,))
+        user_row = cursor.fetchone()
+        conn.close()
+        
+        if not user_row:
+            print(f"[ERROR] 用户不存在，user_id: {user_id}")
+            print("=" * 50)
+            return jsonify({"code": 404, "msg": "用户不存在"}), 404
+
+        # 生成 JWT Token（使用 SM2 签名）
+        from app.services.JWT_SM2_Utils import jwt_service
+        tokens = jwt_service.generate_tokens(
+            username=user_row["username"],
+            role=user_row["role"] or "user",
+            user_id=user_row["id"]
+        )
+        
+        print(f"[SUCCESS] 证书登录成功，用户: {user_row['username']}, 用户ID: {user_row['id']}")
         print("=" * 50)
+        
         return jsonify({
             "code": 200,
             "msg": "证书登录成功",
-            "data": {"access_token": token, "expires_in": 7200}
+            "data": {
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens["refresh_token"],
+                "expires_in": 3600,
+                "user": {
+                    "username": user_row["username"],
+                    "role": user_row["role"] or "user",
+                    "auth_method": "certificate"
+                }
+            }
         })
     except Exception as e:
         print(f"[ERROR] 认证失败: {str(e)}")

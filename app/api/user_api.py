@@ -13,34 +13,47 @@ sm2_service = SM2Service()
 # 接口1：用户注册（POST /api/v1/users）
 @user_bp.route("/users", methods=["POST"])
 def register():
-    # 1. 获取前端提交的注册数据
-    data = request.get_json()  # 格式：{"username": "test", "password": "Test@123", "phone": "13800138000"}
-    username = data.get("username")
-    password = data.get("password")
-    phone = data.get("phone")
-
-    # 2. 基础参数校验
-    if not all([username, password, phone]):
-        return api_response(400, "用户名、密码、手机号不能为空")
-
-    # 3. 调用 SM2 加密手机号（替换原来的 RSA）
     try:
-        encrypted_phone = sm2_service.encrypt(phone)
-    except Exception as e:
-        return api_response(500, f"手机号加密失败：{str(e)}")
+        # 1. 获取前端提交的注册数据
+        data = request.get_json()  # 格式：{"username": "test", "password": "Test@123", "phone": "13800138000"}
+        print(f"📥 收到注册请求: {data}")
+        
+        username = data.get("username")
+        password = data.get("password")
+        phone = data.get("phone")
 
-    # 4. 调用用户模块完成注册
-    result = user_service.register(
-        username=username,
-        password=password,
-        phone=phone,
-        phone_encrypted=encrypted_phone,
-    )
-    # 5. 统一响应
-    if result["success"]:
-        return api_response(201, "注册成功", {"username": username})
-    else:
-        return api_response(400, result["msg"])
+        # 2. 基础参数校验
+        if not all([username, password, phone]):
+            return api_response(400, "用户名、密码、手机号不能为空")
+
+        # 3. 调用 SM2 加密手机号（替换原来的 RSA）
+        try:
+            encrypted_phone = sm2_service.encrypt(phone)
+            print(f"✅ 手机号加密成功")
+        except Exception as e:
+            print(f"❌ 手机号加密失败: {e}")
+            return api_response(500, f"手机号加密失败：{str(e)}")
+
+        # 4. 调用用户模块完成注册
+        result = user_service.register(
+            username=username,
+            password=password,
+            phone=phone,
+            phone_encrypted=encrypted_phone,
+        )
+        
+        # 5. 统一响应
+        if result["success"]:
+            print(f"✅ 用户注册成功: {username}")
+            return api_response(201, "注册成功", {"username": username})
+        else:
+            print(f"❌ 用户注册失败: {result['msg']}")
+            return api_response(400, result["msg"])
+    except Exception as e:
+        print(f"❌ 注册接口异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return api_response(500, f"服务器错误: {str(e)}")
 
 
 # 接口2：获取当前用户信息（GET /api/v1/users/me）

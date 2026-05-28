@@ -450,11 +450,11 @@ async function issueNewCert() {
     });
 
     console.log('[签发证书] 原始响应:', res);
-    console.log('[签发证书] res.code:', res?.code);
     console.log('[签发证书] res.data:', res?.data);
 
-    // http.js 已经返回了 response.data，所以 res 就是后端的整个 JSON 响应
-    const responseData = res;
+    // http.js 返回的是 axios response.data，即后端的整个 JSON 响应
+    // 后端返回格式: { code: 200, msg: "...", data: { certificate: ..., ... } }
+    const responseData = res.data || res;
 
     console.log('[签发证书] 解析后的数据:', responseData);
     console.log('[签发证书] responseData.code:', responseData?.code);

@@ -72,6 +72,19 @@
           登录
         </el-button>
 
+        <!-- 证书登录入口 -->
+        <el-divider>或</el-divider>
+
+        <el-button
+          type="success"
+          plain
+          class="cert-login-btn"
+          @click="goCertificateLogin"
+        >
+          <el-icon><Key /></el-icon>
+          使用数字证书登录
+        </el-button>
+
         <div class="form-footer">
           还没有账号？
           <el-link type="primary" :underline="false" @click="goRegister">
@@ -88,7 +101,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
-import { UserFilled, Lock } from '@element-plus/icons-vue';
+import { UserFilled, Lock, Key } from '@element-plus/icons-vue';
 
 import { sanitizeInput } from '../../utils/security';
 
@@ -134,6 +147,10 @@ function goForgot() {
 
 function goRegister() {
   router.push({ name: 'Register' });
+}
+
+function goCertificateLogin() {
+  router.push({ name: 'CertificateLogin' });
 }
 
 async function handleSubmit() {
@@ -256,10 +273,22 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.cert-login-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+.cert-login-btn :deep(.el-icon) {
+  margin-right: 6px;
+}
+
 .form-footer {
   text-align: center;
   color: #6b7280;
   font-size: 14px;
+  margin-top: 16px;
 }
 
 .captcha-col {

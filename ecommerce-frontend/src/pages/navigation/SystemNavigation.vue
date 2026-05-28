@@ -54,14 +54,6 @@ const sections = [
     theme: 'theme-orange'
   },
   {
-    title: '证书登录',
-    desc: '使用数字证书进行强认证安全登录。',
-    icon: Key,
-    route: 'CertificateLogin',
-    button: '证书登录',
-    theme: 'theme-red'
-  },
-  {
     title: '个人中心',
     desc: '查看和编辑个人资料信息。',
     icon: UserFilled,

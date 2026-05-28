@@ -15,21 +15,27 @@ def _conn():
 
 
 def _ensure_table():
-    with _conn() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                phone TEXT NOT NULL,
-                phone_encrypted TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user'
+    """确保表结构存在，如果不存在则创建"""
+    try:
+        with _conn() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    phone_encrypted TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'user'
+                )
+                """
             )
-            """
-        )
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ 确保表结构时出错: {e}")
 
 
+# 模块加载时确保表存在
 _ensure_table()
 
 
@@ -77,8 +83,10 @@ class UserService:
                 (username,),
             ).fetchone()
         if not row:
+            self.error_msg = "用户不存在"
             return None
         if row["password_hash"] != hash_password(password):
+            self.error_msg = "密码错误"
             return None
         return User(row["id"], row["username"], row["role"] or "user", row["phone_encrypted"])
 

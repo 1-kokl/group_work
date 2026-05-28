@@ -8,13 +8,18 @@ const CSRF_STORAGE_KEY = 'auth.csrfToken';
 export async function login(credentials) {
   const payload = normalizeLoginPayload(credentials);
   try {
-    const data = await http.post(`${AUTH_PREFIX}/login`, payload, {
+    const response = await http.post(`${AUTH_PREFIX}/login`, payload, {
       skipAuthRefresh: true,
       suppressErrorEvent: true
     });
-    return normalizeAuthResponse(data, {
+
+    // 修复：正确处理后端响应格式 { code, msg, data }
+    const data = response.data || response;
+    const loginData = data.data || data;
+
+    return normalizeAuthResponse(loginData, {
       username: payload.username,
-      role: data?.data?.role ?? null
+      role: loginData?.role ?? null
     });
   } catch (error) {
     const normalized = normalizeAuthError(error);
@@ -25,7 +30,7 @@ export async function login(credentials) {
 /** 注册仅创建账号，不返回 JWT；登录需单独调用 login。 */
 export async function register(payload) {
   try {
-    const data = await http.post(
+    const response = await http.post(
       REGISTER_PATH,
       {
         username: payload.username,
@@ -34,7 +39,11 @@ export async function register(payload) {
       },
       { skipAuthRefresh: true }
     );
-    const inner = unwrapPayload(data);
+
+    // 修复：正确处理后端响应格式
+    const data = response.data || response;
+    const inner = data.data || data;
+
     return {
       username: inner?.username ?? payload.username,
       raw: data
@@ -93,7 +102,7 @@ function normalizeAuthResponse(data = {}, meta = {}) {
     p.token ||
     p.accessToken ||
     p.access_token ||
-    data?.data?.token || // 支持后端嵌套结构 { data: { token: '...' } }
+    data?.data?.token ||
     data?.data?.accessToken ||
     data?.data?.access_token ||
     data.token ||
@@ -155,6 +164,14 @@ function normalizeAuthResponse(data = {}, meta = {}) {
       console.warn('[authAPI] 存储 CSRF 令牌失败:', error);
     }
   }
+
+  // 添加调试日志
+  console.log('[authAPI] normalizeAuthResponse:', {
+    token: token ? token.substring(0, 20) + '...' : 'null',
+    refreshToken: refreshToken ? 'exists' : 'null',
+    user: inferredUser
+  });
+
   return {
     token,
     refreshToken,

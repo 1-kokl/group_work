@@ -364,8 +364,9 @@ const verifyCertificate = async () => {
 
     console.log('8. 后端响应:', loginRes);
 
-    // http.js 已经返回了 response.data，所以 loginRes 就是后端的 JSON 数据
-    const responseData = loginRes;
+    // http.js 返回的是 axios response，需要取 data 字段
+    // 后端返回格式: { code: 200, msg: "...", data: { access_token: ..., ... } }
+    const responseData = loginRes.data || loginRes;
 
     console.log('9. 解析后的数据:', responseData);
     console.log('10. code:', responseData?.code);
