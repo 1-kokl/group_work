@@ -118,11 +118,11 @@ const loadOrders = async () => {
       per_page: pagination.value.per_page
     })
 
-    if (response.code === 200) {
-      orders.value = response.data.items
-      pagination.value.total = response.data.total
+    if (response.data.code === 200) {
+      orders.value = response.data.data.items
+      pagination.value.total = response.data.data.total
     } else {
-      ElMessage.error(response.msg || '加载订单失败')
+      ElMessage.error(response.data.msg || '加载订单失败')
     }
   } catch (error) {
     console.error('加载订单失败:', error)
@@ -142,16 +142,14 @@ const goToPayment = async (orderId) => {
   try {
     const response = await orderAPI.createPayment(orderId)
 
-    if (response.code === 200) {
-      const paymentUrl = response.data.payment_url
+    if (response.data.code === 200) {
+      const paymentUrl = response.data.data.payment_url
 
-      // 保存当前页面路径，支付完成后返回
       sessionStorage.setItem('payment_return_url', window.location.href)
 
-      // 浏览器跳转到银行支付页面
       window.location.href = paymentUrl
     } else {
-      ElMessage.error(response.msg || '创建支付失败')
+      ElMessage.error(response.data.msg || '创建支付失败')
     }
   } catch (error) {
     console.error('创建支付失败:', error)
