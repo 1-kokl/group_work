@@ -1,0 +1,7 @@
+VUE_APP_API_BASE_URL=http://localhost:5000
+VUE_APP_VERSION=0.1.0
+VUE_APP_USE_MSW=false
+
+# 设置为 true 时启用 webpack-bundle-analyzer
+ANALYZE=false
+
