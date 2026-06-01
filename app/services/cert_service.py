@@ -152,12 +152,12 @@ class CertService:
         try:
             if not cert_content or not isinstance(cert_content, str):
                 return False
-            
+
             clean_cert = cert_content.strip()
-            
+
             if not clean_cert.startswith("-----BEGIN CERTIFICATE-----"):
                 clean_cert = f"-----BEGIN CERTIFICATE-----\n{clean_cert}\n-----END CERTIFICATE-----"
-            
+
             x509.load_pem_x509_certificate(
                 clean_cert.encode("utf-8"),
                 default_backend()
@@ -165,6 +165,7 @@ class CertService:
             return True
         except Exception:
             return False
+
 
     @staticmethod
     def merge_certificates(ca_cert_pem: str, user_cert_pem: str) -> str:

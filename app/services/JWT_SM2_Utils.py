@@ -90,9 +90,13 @@ class JWTSM2Service:
                 return None
             username = payload.get("username")
             role = payload.get("role", "user")
-            return self.generate_token(
-                {"username": username, "role": role}, expires_in=3600
-            )
+            user_id = payload.get("user_id")
+
+            new_payload = {"username": username, "role": role}
+            if user_id is not None:
+                new_payload["user_id"] = user_id
+
+            return self.generate_token(new_payload, expires_in=3600)
         except Exception:
             return None
 
