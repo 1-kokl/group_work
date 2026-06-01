@@ -110,6 +110,7 @@ const pagination = ref({
 })
 
 // 加载订单列表
+// 加载订单列表
 const loadOrders = async () => {
   loading.value = true
   try {
@@ -118,11 +119,14 @@ const loadOrders = async () => {
       per_page: pagination.value.per_page
     })
 
-    if (response.data.code === 200) {
-      orders.value = response.data.data.items
-      pagination.value.total = response.data.data.total
+    // 修复：http.js 返回的是 axios response 对象，需要从 response.data 获取
+    const responseData = response.data || response
+
+    if (responseData.code === 200) {
+      orders.value = responseData.data.items || []
+      pagination.value.total = responseData.data.total || 0
     } else {
-      ElMessage.error(response.data.msg || '加载订单失败')
+      ElMessage.error(responseData.msg || '加载订单失败')
     }
   } catch (error) {
     console.error('加载订单失败:', error)
@@ -142,20 +146,28 @@ const goToPayment = async (orderId) => {
   try {
     const response = await orderAPI.createPayment(orderId)
 
-    if (response.data.code === 200) {
-      const paymentUrl = response.data.data.payment_url
+    // 修复：http.js 返回的是 axios response 对象
+    const responseData = response.data || response
 
+    if (responseData.code === 200) {
+      const paymentUrl = responseData.data.payment_url
+
+      // 保存当前页面路径，支付完成后返回
       sessionStorage.setItem('payment_return_url', window.location.href)
 
+      // 浏览器跳转到银行支付页面
       window.location.href = paymentUrl
     } else {
-      ElMessage.error(response.data.msg || '创建支付失败')
+      ElMessage.error(responseData.msg || '创建支付失败')
     }
   } catch (error) {
     console.error('创建支付失败:', error)
     ElMessage.error(error.response?.data?.msg || '创建支付失败')
   }
 }
+
+
+
 
 // 取消订单
 const handleCancel = async (orderId) => {
@@ -168,11 +180,14 @@ const handleCancel = async (orderId) => {
 
     const response = await orderAPI.cancelOrder(orderId)
 
-    if (response.code === 200) {
+    // 修复：http.js 返回的是 axios response 对象
+    const responseData = response.data || response
+
+    if (responseData.code === 200) {
       ElMessage.success('订单已取消')
       loadOrders() // 刷新列表
     } else {
-      ElMessage.error(response.msg || '取消订单失败')
+      ElMessage.error(responseData.msg || '取消订单失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -181,6 +196,7 @@ const handleCancel = async (orderId) => {
     }
   }
 }
+
 
 // 判断是否可以支付
 const canPay = (order) => {
@@ -250,8 +266,26 @@ const formatTime = (timeStr) => {
     minute: '2-digit'
   })
 }
+// 【新增】检查支付返回状态
+const checkPaymentStatus = () => {
+  const params = new URLSearchParams(window.location.search)
+  const status = params.get('status')
+  const orderId = params.get('order_id')
+
+  if (status === 'success') {
+    ElMessage.success(`订单 ${orderId} 支付成功！`)
+    // 刷新订单列表
+    loadOrders()
+    // 清理 URL 参数，防止刷新页面重复提示
+    window.history.replaceState({}, '', window.location.pathname)
+  } else if (status === 'failed') {
+    ElMessage.error(`订单 ${orderId} 支付失败，请重试。`)
+    window.history.replaceState({}, '', window.location.pathname)
+  }
+}
 
 onMounted(() => {
+  checkPaymentStatus()
   loadOrders()
 })
 </script>
