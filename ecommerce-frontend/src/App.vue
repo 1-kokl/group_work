@@ -5,15 +5,13 @@
       <AppHeader v-if="showLayout" class="app-header" />
       <div class="app-content">
         <ErrorBoundary>
-          <RouterView v-slot="{ Component }">
-            <Suspense>
-              <component :is="Component" />
-              <template #fallback>
-                <div class="suspense-fallback">
-                  <el-skeleton :rows="4" animated />
-                </div>
-              </template>
-            </Suspense>
+          <RouterView v-slot="{ Component, route }">
+            <Transition name="fade" mode="out-in">
+              <component
+                :is="Component"
+                :key="route.path"
+              />
+            </Transition>
           </RouterView>
         </ErrorBoundary>
       </div>
@@ -68,5 +66,16 @@ const showLayout = computed(() => !route.meta?.hideLayout);
 .suspense-fallback {
   padding: 24px;
 }
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 </style>
+
 
