@@ -618,6 +618,13 @@ async function testCertificate() {
     return;
   }
 
+  // 添加调试日志
+  console.log('[DEBUG] 测试证书内容:');
+  console.log('  - 长度:', testCertContent.value.length);
+  console.log('  - 前100字符:', testCertContent.value.substring(0, 100));
+  console.log('  - 是否包含BEGIN:', testCertContent.value.includes('-----BEGIN CERTIFICATE-----'));
+  console.log('  - 是否包含END:', testCertContent.value.includes('-----END CERTIFICATE-----'));
+
   testLoading.value = true;
   testResult.value = null;
 
@@ -627,10 +634,12 @@ async function testCertificate() {
     });
     const data = res.data || res;
 
+    console.log('[DEBUG] 后端响应:', data);
+
     testResult.value = {
       valid: data.valid,
       message: data.message || (data.valid ? '证书格式有效' : '证书格式无效'),
-      details: {
+      details: data.details || {
         format: data.valid,
         validity: '需要后端提供详细信息',
         issuer: '需要后端提供详细信息',
@@ -642,7 +651,7 @@ async function testCertificate() {
       ElMessage.success('✅ 证书测试通过');
       currentStep.value = 2;
     } else {
-      ElMessage.warning('⚠️ 证书格式可能有问题');
+      ElMessage.warning('⚠️ ' + (data.message || '证书格式可能有问题'));
     }
   } catch (err) {
     testResult.value = {
@@ -654,6 +663,7 @@ async function testCertificate() {
     testLoading.value = false;
   }
 }
+
 
 async function pasteFromClipboard() {
   try {
