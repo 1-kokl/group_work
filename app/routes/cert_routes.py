@@ -99,7 +99,6 @@ def issue_cert():
                     cert["not_after"]
                 )
             )
-        
         conn.commit()
         conn.close()
         
@@ -225,6 +224,7 @@ def cert_login():
         print("=" * 50)
         return jsonify({"code": 401, "msg": f"认证失败：{str(e)}"}), 401
 
+
 @cert_bp.route("/get", methods=["GET"])
 def get_cert():
     """获取用户证书"""
@@ -248,17 +248,70 @@ def test_cert():
         return jsonify({"code": 400, "msg": "证书内容不能为空"}), 400
     
     try:
+        # 先检查基本格式
+        clean_cert = cert_content.strip()
+        
+        # 检查是否包含 BEGIN/END 标记
+        has_begin = "-----BEGIN CERTIFICATE-----" in clean_cert
+        has_end = "-----END CERTIFICATE-----" in clean_cert
+        
+        if not has_begin or not has_end:
+            return jsonify({
+                "code": 200,
+                "msg": "证书测试完成",
+                "data": {
+                    "valid": False,
+                    "message": "证书格式无效：缺少 PEM 标记（-----BEGIN CERTIFICATE----- / -----END CERTIFICATE-----）",
+                    "details": {
+                        "format": False,
+                        "has_begin_marker": has_begin,
+                        "has_end_marker": has_end,
+                        "content_length": len(clean_cert)
+                    }
+                }
+            })
+        
+        # 尝试解析证书
         is_valid = cert_service.verify_cert_format(cert_content)
-        return jsonify({
-            "code": 200,
-            "msg": "证书测试完成",
-            "data": {
-                "valid": is_valid,
-                "message": "证书格式有效" if is_valid else "证书格式无效"
-            }
-        })
+        
+        if is_valid:
+            return jsonify({
+                "code": 200,
+                "msg": "证书测试完成",
+                "data": {
+                    "valid": True,
+                    "message": "证书格式有效",
+                    "details": {
+                        "format": True,
+                        "content_length": len(clean_cert)
+                    }
+                }
+            })
+        else:
+            return jsonify({
+                "code": 200,
+                "msg": "证书测试完成",
+                "data": {
+                    "valid": False,
+                    "message": "证书格式无效：无法解析为有效的 X.509 证书",
+                    "details": {
+                        "format": False,
+                        "content_length": len(clean_cert)
+                    }
+                }
+            })
     except Exception as e:
-        return jsonify({"code": 500, "msg": str(e)}), 500
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"[ERROR] 证书测试失败: {error_detail}")
+        return jsonify({
+            "code": 500,
+            "msg": f"证书测试失败: {str(e)}",
+            "data": {
+                "valid": False,
+                "message": f"服务器内部错误: {str(e)}"
+            }
+        }), 500
 
 @cert_bp.route("/merge", methods=["POST"])
 def merge_certs():

@@ -282,8 +282,8 @@ PAYMENT_RESULT_HTML = """
         {% endif %}
         
         <div>
-            <a href="http://localhost:8088/orders" class="btn">查看订单</a>
-            <a href="http://localhost:8088/" class="btn">返回首页</a>
+            <a href="http://localhost:8081/orders" class="btn">查看订单</a>
+            <a href="http://localhost:8081/" class="btn">返回首页</a>
         </div>
         
         <div class="countdown">
@@ -302,7 +302,7 @@ PAYMENT_RESULT_HTML = """
             
             if (seconds <= 0) {
                 clearInterval(timer);
-                window.location.href = 'http://localhost:8088/orders';
+                window.location.href = 'http://localhost:8081/orders';
             }
         }, 1000);
     </script>
