@@ -44,6 +44,17 @@ def init_ecommerce_db():
     except Exception as e:
         print(f"⚠️ 电商数据表初始化警告: {e}")
 
+# ========== 初始化证书数据表 ==========
+def init_certificates_db():
+    try:
+        from create_certificates_table import create_certificates_table
+        if create_certificates_table():
+            print("✅ 证书数据表初始化成功")
+        else:
+            print("⚠️ 证书数据表初始化失败")
+    except Exception as e:
+        print(f"⚠️ 证书数据表初始化警告: {e}")
+
 # ========== Flask启动函数 ==========
 def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=False)
@@ -72,10 +83,17 @@ def main():
 
         # 初始化数据库表
         print("初始化数据库...")
-        Base.metadata.create_all(bind=engine)
-        
+
+        # 使用 Flask-SQLAlchemy 创建所有模型表
+        with app.app_context():
+            db.create_all()
+            print("✅ SQLAlchemy 模型表创建成功")
+
         # 初始化电商数据表
         init_ecommerce_db()
+
+        # 初始化证书数据表
+        init_certificates_db()
 
         # 多线程同时运行Flask服务和命令行菜单
         flask_thread = threading.Thread(target=run_flask)
