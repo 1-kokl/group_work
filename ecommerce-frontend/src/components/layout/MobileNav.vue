@@ -27,13 +27,13 @@ const navMenus = [
     name: 'Dashboard',
     label: '概览',
     icon: Histogram,
-    roles: ['admin', 'operator', 'merchant']
+    roles: ['admin', 'operator', 'merchant', 'user']
   },
   {
     name: 'Profile',
     label: '我的',
     icon: User,
-    roles: ['admin', 'operator', 'merchant']
+    roles: ['admin', 'operator', 'merchant', 'user']
   }
 ];
 

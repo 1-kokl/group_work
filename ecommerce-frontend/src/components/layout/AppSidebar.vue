@@ -70,7 +70,7 @@ const navMenus = [
     name: 'Dashboard',
     label: '仪表盘总览',
     icon: Histogram,
-    roles: ['admin', 'operator', 'merchant']
+    roles: ['admin', 'operator', 'merchant', 'user']
   },
   {
     name: 'Profile',
