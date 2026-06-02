@@ -1,13 +1,14 @@
 """主函数：初始化服务并启动多线程运行Flask和命令行菜单"""
 import threading
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from app.api import init_api
 from app.services.SM2_Utils import SM2Service
 from app.services.SM4_Utils import SM4Service
-from app.routes._init_ import register_blueprints
+from app.routes import register_blueprints
 from app.extensions import db
 
 # ========== 初始化数据库 ==========
@@ -27,6 +28,17 @@ db.init_app(app)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 init_api(app)
 register_blueprints(app)
+
+# ========== 静态文件服务（图片上传） ==========
+upload_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
+os.makedirs(upload_folder, exist_ok=True)
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    print(f"[DEBUG] 请求文件: {filename}")
+    print(f"[DEBUG] 完整路径: {os.path.join(upload_folder, filename)}")
+    print(f"[DEBUG] 文件是否存在: {os.path.exists(os.path.join(upload_folder, filename))}")
+    return send_from_directory(upload_folder, filename)
 
 # ========== 初始化国密服务（替换原RSA初始化） ==========
 def init_crypto_services():
@@ -70,7 +82,7 @@ def cli_menu():
             from app.services.register import register
             register()
         elif choice == "2":
-            print("👋 系统已退出")
+            print(" 系统已退出")
             exit(0)
         else:
             print("❌ 无效选择，请重新输入")
@@ -101,7 +113,7 @@ def main():
         flask_thread.start()
 
         print("=" * 60)
-        print("🚀 电子商务系统启动成功!")
+        print(" 电子商务系统启动成功!")
         print("=" * 60)
 
         # 启动命令行菜单

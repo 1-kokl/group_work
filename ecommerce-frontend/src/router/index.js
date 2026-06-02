@@ -1,7 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import store from '../store';
 import CertCenter from '@/pages/cert/CertCenter.vue';
-
+import Dashboard from '@/pages/dashboard/index.vue'
+import ProductDetail from '@/pages/product/ProductDetail.vue'
+import MyProducts from '@/pages/user/MyProducts.vue'
+import Cart from '@/pages/cart/Cart.vue'
+import OrderList from '@/pages/order/OrderList.vue'
 
 /**
  * 路由配置说明：
@@ -35,6 +39,36 @@ const routes = [
       requiresGuest: true,
       hideLayout: true
     }
+  },
+  {
+    path: '/products',
+    name: 'Products',
+    component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/product/:id',
+    name: 'ProductDetail',
+    component: ProductDetail,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/cart',
+    name: 'Cart',
+    component: Cart,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: OrderList,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/my-products',
+    name: 'MyProducts',
+    component: MyProducts,
+    meta: { requiresAuth: true }
   },
   {
     path: '/dashboard',

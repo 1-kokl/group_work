@@ -1,9 +1,45 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from app.services.ecommerce_service import ProductService, CartService, OrderService
 from app.middleware.jwt_auth import jwt_required
 from app.utils.response import api_response
+import os
+import uuid
+from werkzeug.utils import secure_filename
 
 ecommerce_bp = Blueprint("ecommerce", __name__, url_prefix="/api/ecommerce")
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@ecommerce_bp.route("/upload-image", methods=["POST"])
+@jwt_required
+def upload_image():
+    """上传图片"""
+    if 'image' not in request.files:
+        return api_response(400, "没有图片文件")
+    
+    file = request.files['image']
+    if file.filename == '':
+        return api_response(400, "未选择图片")
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        
+        upload_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'products'))
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        filepath = os.path.join(upload_folder, unique_filename)
+        file.save(filepath)
+        
+        print(f"[UPLOAD] 图片已保存到: {filepath}")
+        
+        image_url = f"/uploads/products/{unique_filename}"
+        return api_response(200, "上传成功", {"image_url": image_url})
+    else:
+        return api_response(400, "不支持的图片格式")
 
 
 # ==================== 商品管理接口 ====================

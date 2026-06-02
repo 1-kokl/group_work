@@ -72,6 +72,9 @@
             <el-button type="success" plain block @click="go('Orders')">
               📦 我的订单
             </el-button>
+            <el-button type="warning" plain block @click="go('MyProducts')">
+              🏪 我的上架商品
+            </el-button>
           </div>
         </el-card>
 

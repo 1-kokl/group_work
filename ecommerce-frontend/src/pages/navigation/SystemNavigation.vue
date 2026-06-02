@@ -38,11 +38,11 @@ const router = useRouter();
 
 const sections = [
   {
-    title: '仪表盘',
-    desc: '默认落地页，展示静态指标卡片用于占位。',
+    title: '商品管理中心',
+    desc: '浏览平台商品、上架新产品及管理我的商品。',
     icon: DataAnalysis,
-    route: 'Dashboard',
-    button: '仪表盘',
+    route: 'Products',
+    button: '前往浏览',
     theme: 'theme-purple'
   },
   {
@@ -175,4 +175,3 @@ function go(name) {
   background-color: rgba(255, 255, 255, 0.3);
 }
 </style>
-

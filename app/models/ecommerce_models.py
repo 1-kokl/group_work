@@ -20,6 +20,25 @@ class Product(db.Model):
     created_by = db.Column(db.BigInteger, comment="创建者ID")
 
     def to_dict(self):
+        # 查询卖家用户名（通过 SQLite 直接查询）
+        import sqlite3
+        import os
+        
+        seller_username = None
+        if self.created_by:
+            try:
+                db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'user.db')
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT username FROM users WHERE id = ?", (self.created_by,))
+                row = cursor.fetchone()
+                if row:
+                    seller_username = row["username"]
+                conn.close()
+            except Exception as e:
+                print(f"查询卖家用户名失败: {e}")
+        
         return {
             "id": self.id,
             "name": self.name,
@@ -29,6 +48,8 @@ class Product(db.Model):
             "category": self.category,
             "image_url": self.image_url,
             "status": self.status,
+            "created_by": self.created_by,
+            "seller_username": seller_username,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

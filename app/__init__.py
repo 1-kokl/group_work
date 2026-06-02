@@ -1,24 +1,30 @@
-from flask import Flask
+from flask import Flask, send_from_directory
+import os
 from app.extensions import db
-from app.routes._init_ import register_blueprints
+from app.routes import register_blueprints
 from app.api._init_ import init_api
 
 
 def create_app():
-    """应用工厂函数"""
-    app = Flask(__name__)
+    app = Flask(__name__, instance_relative_config=False)
+    app.config.from_object('config.Config')
     
-    # 配置数据库
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # 初始化扩展
     db.init_app(app)
-
-    # 初始化API（注册auth和user蓝图）
-    init_api(app)
-
-    # 注册其他蓝图
+    
     register_blueprints(app)
-
+    
+    upload_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
+    os.makedirs(upload_folder, exist_ok=True)
+    
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        print(f"[DEBUG] 请求文件: {filename}")
+        print(f"[DEBUG] 完整路径: {os.path.join(upload_folder, filename)}")
+        print(f"[DEBUG] 文件是否存在: {os.path.exists(os.path.join(upload_folder, filename))}")
+        return send_from_directory(upload_folder, filename)
+    
+    with app.app_context():
+        from app.models import ca_models, ecommerce_models
+        db.create_all()
+    
     return app

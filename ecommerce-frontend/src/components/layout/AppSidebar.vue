@@ -52,7 +52,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { Grid, Histogram, User, Menu as MenuIcon } from '@element-plus/icons-vue';
+import { Grid, Histogram, User, Menu as MenuIcon, ShoppingCart, Tickets } from '@element-plus/icons-vue';
 import { sanitizeInput } from '../../utils/security';
 
 const router = useRouter();
@@ -68,8 +68,26 @@ function setHover(value) {
 const navMenus = [
   {
     name: 'Dashboard',
-    label: '仪表盘总览',
+    label: '商品管理',
     icon: Histogram,
+    roles: ['admin', 'operator', 'merchant', 'user']
+  },
+  {
+    name: 'Cart',
+    label: '我的购物车',
+    icon: ShoppingCart,
+    roles: ['admin', 'operator', 'merchant', 'user']
+  },
+  {
+    name: 'Orders',
+    label: '我的订单',
+    icon: Tickets,
+    roles: ['admin', 'operator', 'merchant', 'user']
+  },
+  {
+    name: 'MyProducts',
+    label: '我的上架商品',
+    icon: Grid,
     roles: ['admin', 'operator', 'merchant', 'user']
   },
   {
