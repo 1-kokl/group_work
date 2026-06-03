@@ -134,18 +134,56 @@ def sm3_hash(data):
 
 def verify_signature(order_id, amount, merchant_id, timestamp, signature):
     """
-    验证电商签名
-    【调试模式】：暂时跳过严格的 SM2 验签，直接返回 True
+    验证电商签名 - 严格的SM2+SM3验证
+    【生产模式】：启用完整的数字签名验证
     """
-    print(f"⚠️ [调试模式] 收到签名验证请求: order_id={order_id}")
-    print(f"   待签名字符串: {order_id}|{amount}|{merchant_id}|{timestamp}")
-    
-    # 只要签名不为空，就认为验证通过
-    if signature:
-        print("✅ [调试模式] 签名验证通过 (跳过严格校验)")
-        return True
-    else:
-        print("❌ 签名为空")
+    try:
+        print(f"🔐 [生产模式] 开始签名验证: order_id={order_id}")
+        print(f"   待签名字符串: {order_id}|{amount}|{merchant_id}|{timestamp}")
+
+        # 参数校验
+        if not all([order_id, amount, merchant_id, timestamp, signature]):
+            print("❌ 签名验证失败: 缺少必要参数")
+            return False
+
+        # 1. 构造待签名字符串
+        sign_str = f"{order_id}|{amount}|{merchant_id}|{timestamp}"
+
+        # 2. 计算SM3哈希
+        expected_hash = sm3_hash(sign_str)
+        print(f"   预期哈希值: {expected_hash[:64]}...")
+
+        # 3. 使用电商公钥验证SM2签名
+        if not ECOMMERCE_PUBLIC_KEY:
+            print("⚠️  警告: 未配置电商公钥，无法进行严格验证")
+            print("   请确保已加载电商系统的公钥")
+            return False
+
+        para = len(default_ecc_table["n"])
+        placeholder = "0" * (2 * para)
+
+        # 创建SM2验签对象（使用电商公钥）
+        sm2 = CryptSM2(private_key="", public_key=ECOMMERCE_PUBLIC_KEY.lstrip("04"), mode=1)
+
+        # 4. 验证签名
+        is_valid = sm2.verify(expected_hash.encode("utf-8"), signature)
+
+        if is_valid:
+            print("✅ 签名验证通过 - 数据完整性确认")
+            return True
+        else:
+            print("❌ 签名验证失败 - 数据可能被篡改")
+            print(f"   可能原因:")
+            print(f"   - 金额参数被修改")
+            print(f"   - 订单号被篡改")
+            print(f"   - 时间戳被伪造")
+            print(f"   - 签名是伪造的")
+            return False
+
+    except Exception as e:
+        print(f"❌ 签名验证异常: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -208,11 +246,19 @@ def is_timestamp_valid(timestamp, validity_minutes=5):
 
 def is_order_processed(order_no):
     """检查订单是否已处理（防重放）"""
+    print(f"🔍 [DEBUG] 检查订单是否已处理: {order_no}")
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT 1 FROM replay_protection WHERE order_no = ?", (order_no,))
     result = cursor.fetchone()
     conn.close()
+
+    if result:
+        print(f"   ✅ 订单已存在（应拦截）")
+    else:
+        print(f"   ❌ 订单不存在（允许通过）")
+
     return result is not None
 
 
@@ -506,45 +552,59 @@ def pay_page():
         timestamp = request.args.get("timestamp", type=int)
         signature = request.args.get("signature")
         callback_url = request.args.get("callback_url", "http://localhost:5000/api/pay/result")
-        
+
         # 参数校验
         if not all([order_id, amount, merchant_id, timestamp, signature]):
-            return render_template_string(PAYMENT_PAGE_HTML, 
-                                        error="缺少必要参数",
-                                        callback_url=callback_url)
-        
-        # 时间戳校验（防重放）
+            return render_template_string(PAYMENT_PAGE_HTML,
+                                          error="缺少必要参数",
+                                          callback_url=callback_url)
+
+        # 【第一道防线】时间戳校验（防重放）- 必须在最前面
         if not is_timestamp_valid(timestamp, validity_minutes=5):
+            print(f"⏰ 请求被拒绝: 时间戳过期")
+            print(f"   订单号: {order_id}")
+            print(f"   请求时间戳: {timestamp}")
+            print(f"   当前时间戳: {int(time.time())}")
             return render_template_string(PAYMENT_PAGE_HTML,
-                                        error="请求已过期，请重新发起支付",
-                                        callback_url=callback_url)
-        
-        # 订单是否已处理（防重放）
+                                          error="请求已过期，请重新发起支付",
+                                          callback_url=callback_url)
+
+        # 【第二道防线】订单是否已处理（防重放）- 在签名验证之前
         if is_order_processed(order_id):
+            print(f"🚫 请求被拒绝: 订单已处理（重放攻击）")
+            print(f"   订单号: {order_id}")
+            print(f"   这是第N次尝试处理该订单")
             return render_template_string(PAYMENT_PAGE_HTML,
-                                        error="该订单已处理，请勿重复提交",
-                                        callback_url=callback_url)
-        
-        # 验证签名
+                                          error="该订单已处理，请勿重复提交",
+                                          callback_url=callback_url)
+
+        # 【第三道防线】验证签名（防篡改）
         if not verify_signature(order_id, amount, merchant_id, timestamp, signature):
+            print(f"❌ 请求被拒绝: 签名验证失败")
+            print(f"   订单号: {order_id}")
+            print(f"   金额: {amount}")
             return render_template_string(PAYMENT_PAGE_HTML,
-                                        error="签名验证失败，可能存在数据篡改",
-                                        callback_url=callback_url)
-        
+                                          error="签名验证失败，可能存在数据篡改",
+                                          callback_url=callback_url)
+
         # 渲染支付页面
+        print(f"✅ 所有安全检查通过，显示支付页面")
         return render_template_string(PAYMENT_PAGE_HTML,
-                                    order_id=order_id,
-                                    amount=amount,
-                                    merchant_id=merchant_id,
-                                    timestamp=timestamp,
-                                    signature=signature,
-                                    callback_url=callback_url,
-                                    error=None)
-    
+                                      order_id=order_id,
+                                      amount=amount,
+                                      merchant_id=merchant_id,
+                                      timestamp=timestamp,
+                                      signature=signature,
+                                      callback_url=callback_url,
+                                      error=None)
+
     except Exception as e:
+        print(f"❌ 支付页面异常: {e}")
+        import traceback
+        traceback.print_exc()
         return render_template_string(PAYMENT_PAGE_HTML,
-                                    error=f"系统错误: {str(e)}",
-                                    callback_url=request.args.get("callback_url", ""))
+                                      error=f"系统错误: {str(e)}",
+                                      callback_url=request.args.get("callback_url", ""))
 
 
 @app.route("/pay/process", methods=["POST"])
@@ -586,14 +646,16 @@ def process_payment():
         # 再次验签
         if not verify_signature(order_id, amount, merchant_id, timestamp, signature):
             return jsonify({"success": False, "message": "签名验证失败"}), 403
-        
-        # 防重放检查
+
+        # 【关键】防重放检查 - 二次确认
         if is_order_processed(order_id):
+            print(f"🚫 支付处理被拒绝: 订单已处理")
             return jsonify({"success": False, "message": "订单已处理"}), 409
-        
-        # 标记订单已处理
+
+        # 标记订单已处理 - 立即标记，在处理前
         mark_order_processed(order_id)
-        
+        print(f"✅ 订单已标记为已处理，防止并发重放")
+
         # 模拟扣款
         transaction_id = f"TXN{int(time.time())}{secrets.token_hex(4)}"
         
