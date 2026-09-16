@@ -21,3 +21,22 @@ __pycache__/
 # 前端依赖锁定文件
 **/package-lock.json
 **/yarn.lock
+
+# ===== 本次补充：敏感文件与生成目录（禁止上传 GitHub）=====
+# 数据库（含用户/银行数据）
+*.db
+bank.db
+instance/
+
+# 私钥/密钥（明文敏感，绝不公开）
+bank_sm2_key.txt
+certs/rootCA.key
+
+# 运行生成目录
+uploads/
+venv/
+.venv/
+
+# 本地工具配置
+.idea/
+.claude/

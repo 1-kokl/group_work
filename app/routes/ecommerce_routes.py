@@ -1,6 +1,9 @@
 from flask import Blueprint, request, current_app
 from app.services.ecommerce_service import ProductService, CartService, OrderService
 from app.middleware.jwt_auth import jwt_required
+from app.middleware.rbac import require_permission, ROLE_MERCHANT, ROLE_ADMIN
+from app.services.audit_service import write_log
+from app.models.ecommerce_models import Product
 from app.utils.response import api_response
 import os
 import uuid
@@ -12,6 +15,35 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _audit(action, result="success", resource="product", resource_id=None, detail=""):
+    """写商品操作审计日志。"""
+    info = request.user_info or {}
+    write_log(
+        user_id=info.get("user_id"),
+        username=info.get("username"),
+        role=info.get("role"),
+        action=action,
+        resource=resource,
+        resource_id=resource_id,
+        result=result,
+        ip=getattr(request, "remote_addr", None),
+        detail=detail,
+    )
+
+
+def _can_manage_product(product_id):
+    """数据级权限：管理员可操作任意商品，商户仅能操作自有商品。"""
+    role = (request.user_info or {}).get("role")
+    if role == ROLE_ADMIN:
+        return True, ""
+    product = Product.query.get(product_id)
+    if not product:
+        return False, "商品不存在"
+    if product.created_by != request.user_info.get("user_id"):
+        return False, "只能操作自己的商品"
+    return True, ""
 
 @ecommerce_bp.route("/upload-image", methods=["POST"])
 @jwt_required
@@ -46,16 +78,17 @@ def upload_image():
 
 @ecommerce_bp.route("/products", methods=["POST"])
 @jwt_required
+@require_permission("product.create")
 def create_product():
-    """创建商品（需要管理员权限）"""
-    data = request.get_json()
-    
+    """创建商品（管理员 / 商户）"""
+    data = request.get_json() or {}
+
     name = data.get("name")
     price = data.get("price")
-    
+
     if not name or price is None:
         return api_response(400, "商品名称和价格不能为空")
-    
+
     if price <= 0:
         return api_response(400, "价格必须大于0")
 
@@ -70,6 +103,8 @@ def create_product():
     )
 
     if result["success"]:
+        _audit("PRODUCT_CREATE", resource_id=result["data"]["id"],
+               detail=f"创建商品 {result['data']['name']}")
         return api_response(201, result["msg"], result["data"])
     else:
         return api_response(500, result["msg"])
@@ -108,13 +143,19 @@ def get_product(product_id):
 
 @ecommerce_bp.route("/products/<product_id>", methods=["PUT"])
 @jwt_required
+@require_permission("product.update")
 def update_product(product_id):
-    """更新商品（需要管理员权限）"""
-    data = request.get_json()
-    
+    """更新商品（管理员 / 商户；商户仅限自有商品）"""
+    ok, err = _can_manage_product(product_id)
+    if not ok:
+        _audit("ACCESS_DENIED", result="denied", resource_id=product_id, detail=err)
+        return api_response(403, err)
+
+    data = request.get_json() or {}
     result = ProductService.update_product(product_id, **data)
-    
+
     if result["success"]:
+        _audit("PRODUCT_UPDATE", resource_id=product_id, detail=f"更新商品 {product_id}")
         return api_response(200, result["msg"], result["data"])
     else:
         return api_response(404, result["msg"])
@@ -122,11 +163,18 @@ def update_product(product_id):
 
 @ecommerce_bp.route("/products/<product_id>", methods=["DELETE"])
 @jwt_required
+@require_permission("product.delete")
 def delete_product(product_id):
-    """删除商品（软删除）"""
+    """删除商品（软删除；商户仅限自有商品）"""
+    ok, err = _can_manage_product(product_id)
+    if not ok:
+        _audit("ACCESS_DENIED", result="denied", resource_id=product_id, detail=err)
+        return api_response(403, err)
+
     result = ProductService.delete_product(product_id)
-    
+
     if result["success"]:
+        _audit("PRODUCT_DELETE", resource_id=product_id, detail=f"下架商品 {product_id}")
         return api_response(200, result["msg"])
     else:
         return api_response(404, result["msg"])

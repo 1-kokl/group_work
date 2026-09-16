@@ -2,6 +2,7 @@ from flask import Flask
 from flask_restx import Api, Namespace  # ✅ 修改1：导入 Namespace
 from app.api.user_api import user_bp
 from app.api.auth_api import auth_bp
+from app.api.admin_api import admin_bp
 
 # 初始化API文档
 api = Api(
@@ -24,4 +25,5 @@ def init_api(app: Flask):
     """在run.py中调用，注册所有接口"""
     app.register_blueprint(user_bp)    # 这行保留
     app.register_blueprint(auth_bp)    # 这行保留
+    app.register_blueprint(admin_bp)   # 新增：管理员/审计员接口
     api.init_app(app)                  # 这行保留
