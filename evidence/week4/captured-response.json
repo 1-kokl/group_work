@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "key_id": "server-sm2-2026-01",
+  "alg": "SM4-GCM+SM2",
+  "nonce": "C1e-2uCO8txnVslD",
+  "ts": 1789971244,
+  "wrapped_key": "8GVUqFEYAauUYkU8ucM5OvsX7cdZWgRLLK1kz2LKVONaKeHXqsY7UhHt5Eqey9zbybZItp6pZtDjhQMEjRzN2grZs/yIUDG9PQNfczDmIcgdFjbrd2trWJTtqU8bCJXN0Q/y9Q38REiFwCm2g/Z/lxNQkIH6i5eq",
+  "ciphertext": "7qu+2hDwIZHPOZFcvWzPfaiWfUsz661tioLqnZdmoofJNPP0csxS/OHONkVAjavF6UMeKF2zQaWToDl6FiofaLOjsJfhVuhqMSEVI/HE7ztTcV/Y5SouW9pSqljqGzPFCInhYyaw4IMcUkKO3/A3+OOiUWy/l/Y86QhTbvVrVkjSMaNGBg==",
+  "tag": "O51XFQ9zafuqLTQSXanUsQ=="
+}
