@@ -23,6 +23,9 @@ def jwt_required(f):
         except Exception:
             return api_response(401, "令牌无效或已过期，请重新登录")
 
+        if payload.get("mfa") == "pending":
+            return api_response(401, "请先完成 TOTP 二次验证")
+
         request.user_info = payload
         return f(*args, **kwargs)
 

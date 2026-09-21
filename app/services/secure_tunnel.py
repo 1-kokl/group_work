@@ -189,8 +189,6 @@ class SecureTunnel:
         current = int(time.time() if now is None else now)
         if abs(current - envelope.ts) > self.clock_skew_seconds:
             raise SecureTunnelError("请求已超出时间窗")
-        if not self.nonces.reserve(envelope.nonce, current):
-            raise SecureTunnelError("Nonce 重放")
         nonce = _b64urld(envelope.nonce)
         key = self.keys.unwrap_session_key(envelope.wrapped_key)
         aad = self._aad(envelope.version, envelope.key_id, envelope.ts, envelope.nonce, method, path)
@@ -203,4 +201,7 @@ class SecureTunnel:
             raise SecureTunnelError("密文认证失败") from exc
         if not isinstance(result, dict):
             raise SecureTunnelError("解密结果必须是 JSON 对象")
+        # 认证成功后再占用 Nonce，避免攻击者用篡改包提前消耗合法请求的 Nonce。
+        if not self.nonces.reserve(envelope.nonce, current):
+            raise SecureTunnelError("Nonce 重放")
         return result
