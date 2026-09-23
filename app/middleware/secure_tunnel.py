@@ -4,6 +4,7 @@ from flask import request
 
 from app.services.audit_service import write_log
 from app.utils.response import api_response
+from app.services.secure_tunnel import SecureTunnelError
 
 
 # 只对明确加入白名单的路由启用该装饰器；普通接口保持原有 JSON 行为。
@@ -14,12 +15,14 @@ def secure_tunnel_required(tunnel):
         def wrapped(*args, **kwargs):
             envelope = request.get_json(silent=True)
             try:
-                plaintext = tunnel.open(
+                if request.query_string or (request.content_length or 0) > 65536:
+                    raise SecureTunnelError("Unsupported query or oversized body")
+                plaintext, session_key = tunnel.open_request(
                     envelope,
                     request.method,
                     request.path,
                 )
-            except Exception as exc:
+            except SecureTunnelError as exc:
                 write_log(
                     action="SECURE_TUNNEL_REJECT",
                     resource=request.path,
@@ -30,6 +33,8 @@ def secure_tunnel_required(tunnel):
                 return api_response(400, "安全隧道请求校验失败")
 
             request.decrypted_json = plaintext
+            request.tunnel_session_key = session_key
+            request.tunnel_envelope = envelope
             write_log(
                 action="SECURE_TUNNEL_ACCEPT",
                 resource=request.path,
@@ -37,7 +42,10 @@ def secure_tunnel_required(tunnel):
                 ip=request.remote_addr,
                 detail=f"alg={tunnel.keys.key_id}",
             )
-            return view(*args, **kwargs)
+            try:
+                return view(*args, **kwargs)
+            finally:
+                del request.tunnel_session_key
 
         return wrapped
     return decorator

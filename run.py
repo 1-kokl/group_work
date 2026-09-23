@@ -33,6 +33,14 @@ register_blueprints(app)
 upload_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
 os.makedirs(upload_folder, exist_ok=True)
 
+@app.route('/week4-demo')
+def week4_demo():
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'evidence', 'week4'), 'demo.html')
+
+@app.route('/evidence/week4/<path:filename>')
+def week4_evidence(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'evidence', 'week4'), filename)
+
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     print(f"[DEBUG] 请求文件: {filename}")

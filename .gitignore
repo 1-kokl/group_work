@@ -40,3 +40,6 @@ venv/
 # 本地工具配置
 .idea/
 .claude/
+# Local Week 4 keys, replay store and runtime logs
+.local/
+*.sqlite3

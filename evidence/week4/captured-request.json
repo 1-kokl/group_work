@@ -1,10 +1,21 @@
 {
-  "version": "v1",
-  "key_id": "server-sm2-2026-01",
-  "alg": "SM4-GCM+SM2",
-  "nonce": "qeLi5INpP1vx4Zau",
-  "ts": 1789971244,
-  "wrapped_key": "kSwKP4+w9yqNC3QrOCC7Zc6GYSff4MenSYI3XTmdfDpZ+YEWr2fpyFm5bE1XkhS3goP7g1oFji5+phyZqr6uBMVHoRcC2zmgsgjMtzxYqOXIKqOIKI4IwiwmzDhSiOwoBo1idWJfx6HCyivjberizc96bOD02tK1",
-  "ciphertext": "GQynDxA86nZdZCg8dqOjBoaGPE02p0Uq9o1OCqV41ePAVYTpHKOupZMHmlev0gOzuV8BrzDPJf4TKXicveDvQkwQ",
-  "tag": "6LaOrRWGTD5OJbtcl3IRNw=="
+  "captured_at": "2026-09-22T15:38:38Z",
+  "transport": "HTTP (localhost real request)",
+  "method": "POST",
+  "url": "http://127.0.0.1:5001/api/v1/tunnel/echo",
+  "status_observed": 200,
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Secure-Tunnel": "v2"
+  },
+  "body": {
+    "version": "v2",
+    "alg": "SM4-GCM+SM2",
+    "key_id": "sm2-889c09204f35e7cb",
+    "nonce": "TXmVdkUgE1a8KSvW",
+    "ts": 1790091518,
+    "wrapped_key": "eH6sPaVD1FuYyiBKF6ePbv2wEKNAYOaAX0sM8aP6Dt3r5ibI8mK9fYXlUC4J+MNQwdQpSqTA0KkBJpwxfMkYa2jgUgCaj7Bfyg9M1T7aQ1LzoStoz9YwnzK54yCKPad5a2EVEiM5BctffsfAxUj0Lg==",
+    "ciphertext": "SjDmD0xHYhafFcqrHlugfgpvvWRpZmCNB/5Vfp6iReXENYBE7t05eiHjFuMktTEWuvArTRBJZJPNBJcJLGoapbypvwAr",
+    "tag": "nBud5iN2BnjwecTo225n7g=="
+  }
 }

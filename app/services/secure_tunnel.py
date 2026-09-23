@@ -1,207 +1,199 @@
-"""第4周应用层安全隧道骨架。
-
-协议：SM4-GCM 加密 JSON Body，SM2 封装一次性会话密钥。
-本模块先完成协议字段、密钥生命周期、时间窗和 Nonce 防重放，供 Flask/Axios 接入。
-应用层隧道不能替代 HTTPS。
-"""
+"""Week 4 v2: SM4-GCM + strict SM2 C1C3C2; HTTPS remains required."""
 from __future__ import annotations
-
 import base64
+import hashlib
+import hmac
 import json
+import os
+from pathlib import Path
+import re
 import secrets
+import sqlite3
 import threading
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
-
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from gmssl.sm2 import CryptSM2, default_ecc_table
+from gmssl import sm3
 
-from app.services.SM2_Utils import SM2Service
-
-
-VERSION = "v1"
+VERSION = "v2"
 ALGORITHM = "SM4-GCM+SM2"
-KEY_ID = "server-sm2-2026-01"
-SESSION_KEY_BYTES = 16
-NONCE_BYTES = 12
-TAG_BYTES = 16
 CLOCK_SKEW_SECONDS = 300
-NONCE_TTL_SECONDS = CLOCK_SKEW_SECONDS * 2
-
+NONCE_TTL_SECONDS = 601
+LOCAL_DIR = Path(__file__).resolve().parents[2] / ".local" / "week4"
+REQUEST_FIELDS = {"version", "key_id", "alg", "nonce", "ts", "wrapped_key", "ciphertext", "tag"}
+RESPONSE_FIELDS = (REQUEST_FIELDS - {"wrapped_key"}) | {"request_nonce"}
 
 class SecureTunnelError(ValueError):
-    """信封格式、时间窗、重放或认证标签失败。"""
+    pass
 
+def _b64(value):
+    return base64.b64encode(value).decode("ascii")
 
-
-def _b64(data: bytes) -> str:
-    return base64.b64encode(data).decode("ascii")
-
-
-def _b64d(value: str) -> bytes:
+def _b64d(value):
     try:
-        return base64.b64decode(value, validate=True)
+        if not isinstance(value, str):
+            raise ValueError()
+        raw = base64.b64decode(value, validate=True)
+        if _b64(raw) != value:
+            raise ValueError()
+        return raw
     except Exception as exc:
-        raise SecureTunnelError("Base64 字段格式错误") from exc
+        raise SecureTunnelError("Invalid canonical Base64") from exc
 
+def _nonce(value):
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16}", value):
+        raise SecureTunnelError("Nonce must be 12 bytes, unpadded Base64URL")
+    return base64.urlsafe_b64decode(value)
 
-def _b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+def new_nonce():
+    return base64.urlsafe_b64encode(secrets.token_bytes(12)).decode("ascii")
 
+def response_key(key, request_nonce):
+    return HKDF(algorithm=hashes.SHA256(), length=16, salt=_nonce(request_nonce),
+                info=b"week4-v2-response").derive(key)
 
-def _b64urld(value: str) -> bytes:
+def aad(env, method, path, direction="request", status=200):
+    if "?" in path or "|" in path:
+        raise SecureTunnelError("Query strings and separator paths are not supported")
+    parts = [VERSION, ALGORITHM, env["key_id"], str(env["ts"]), env["nonce"],
+             method.upper(), path, direction]
+    if direction == "response":
+        parts += [env["request_nonce"], str(status)]
+    return "|".join(parts).encode("utf-8")
+
+def _encrypt(payload, key, env, method, path, direction="request", status=200):
+    if not isinstance(payload, dict):
+        raise SecureTunnelError("Body must be a JSON object")
+    plaintext = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    enc = Cipher(algorithms.SM4(key), modes.GCM(_nonce(env["nonce"]))).encryptor()
+    enc.authenticate_additional_data(aad(env, method, path, direction, status))
+    env["ciphertext"] = _b64(enc.update(plaintext) + enc.finalize())
+    env["tag"] = _b64(enc.tag)
+    return env
+
+def _validate(env, key_id, now, direction="request"):
+    fields = REQUEST_FIELDS if direction == "request" else RESPONSE_FIELDS
+    if not isinstance(env, dict) or set(env) != fields:
+        raise SecureTunnelError("Missing or unknown envelope fields")
+    if env["version"] != VERSION or env["alg"] != ALGORITHM or env["key_id"] != key_id:
+        raise SecureTunnelError("Unsupported version, algorithm or key ID")
+    if type(env["ts"]) is not int or abs(now - env["ts"]) > CLOCK_SKEW_SECONDS:
+        raise SecureTunnelError("Invalid timestamp or outside time window")
+    _nonce(env["nonce"])
+    if len(_b64d(env["tag"])) != 16 or not _b64d(env["ciphertext"]):
+        raise SecureTunnelError("Invalid ciphertext or GCM tag length")
+
+def _decrypt(env, key, method, path, direction="request", status=200):
     try:
-        padded = value + "=" * ((4 - len(value) % 4) % 4)
-        return base64.urlsafe_b64decode(padded.encode("ascii"))
-    except Exception as exc:
-        raise SecureTunnelError("Nonce 编码错误") from exc
-
-
-@dataclass(frozen=True)
-class TunnelEnvelope:
-    version: str
-    key_id: str
-    alg: str
-    nonce: str
-    ts: int
-    wrapped_key: str
-    ciphertext: str
-    tag: str
-
-    @classmethod
-    def from_dict(cls, value: Dict[str, Any]) -> "TunnelEnvelope":
+        dec = Cipher(algorithms.SM4(key), modes.GCM(_nonce(env["nonce"]), _b64d(env["tag"]))).decryptor()
+        dec.authenticate_additional_data(aad(env, method, path, direction, status))
+        value = json.loads((dec.update(_b64d(env["ciphertext"])) + dec.finalize()).decode("utf-8"))
         if not isinstance(value, dict):
-            raise SecureTunnelError("安全信封必须是 JSON 对象")
-        required = {"version", "key_id", "alg", "nonce", "ts", "wrapped_key", "ciphertext", "tag"}
-        if set(value) != required:
-            raise SecureTunnelError("安全信封字段不完整或包含未知字段")
-        try:
-            ts = int(value["ts"])
-        except (TypeError, ValueError) as exc:
-            raise SecureTunnelError("ts 必须是 Unix 秒整数") from exc
-        nonce = _b64urld(str(value["nonce"]))
-        tag = _b64d(str(value["tag"]))
-        if len(nonce) != NONCE_BYTES:
-            raise SecureTunnelError("Nonce 必须为 12 字节")
-        if len(tag) != TAG_BYTES:
-            raise SecureTunnelError("GCM tag 必须为 16 字节")
-        for field in ("version", "key_id", "alg", "wrapped_key", "ciphertext"):
-            if not isinstance(value[field], str) or not value[field]:
-                raise SecureTunnelError(f"{field} 字段不能为空")
-        return cls(
-            version=value["version"], key_id=value["key_id"], alg=value["alg"],
-            nonce=value["nonce"], ts=ts, wrapped_key=value["wrapped_key"],
-            ciphertext=value["ciphertext"], tag=value["tag"],
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "version": self.version, "key_id": self.key_id, "alg": self.alg,
-            "nonce": self.nonce, "ts": self.ts, "wrapped_key": self.wrapped_key,
-            "ciphertext": self.ciphertext, "tag": self.tag,
-        }
-
+            raise ValueError()
+        return value
+    except Exception as exc:
+        raise SecureTunnelError("Ciphertext authentication failed") from exc
 
 class NonceStore:
-    """演示用线程安全 Nonce 存储；生产环境替换为 Redis/数据库 TTL。"""
-
-    def __init__(self, ttl_seconds: int = NONCE_TTL_SECONDS):
-        self.ttl_seconds = ttl_seconds
-        self._items: Dict[str, int] = {}
+    """Isolated in-memory store for tests."""
+    def __init__(self):
+        self._items = {}
         self._lock = threading.Lock()
-
-    def reserve(self, nonce: str, now: int) -> bool:
+    def reserve(self, nonce, now):
         with self._lock:
-            self._items = {key: expiry for key, expiry in self._items.items() if expiry > now}
+            self._items = {k: v for k, v in self._items.items() if v > now}
             if nonce in self._items:
                 return False
-            self._items[nonce] = now + self.ttl_seconds
+            self._items[nonce] = now + NONCE_TTL_SECONDS
             return True
 
+class SQLiteNonceStore:
+    """Atomic replay checks shared by local workers and preserved over restarts."""
+    def __init__(self, path=None):
+        self.path = Path(path or LOCAL_DIR / "replay.sqlite3")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.path) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS nonces (nonce TEXT PRIMARY KEY, expires INTEGER NOT NULL)")
+    def reserve(self, nonce, now):
+        with sqlite3.connect(self.path, timeout=10) as db:
+            db.execute("DELETE FROM nonces WHERE expires <= ?", (now,))
+            result = db.execute("INSERT OR IGNORE INTO nonces VALUES (?, ?)", (nonce, now + NONCE_TTL_SECONDS))
+            return result.rowcount == 1
 
 class TunnelKeyManager:
-    """服务器 SM2 密钥管理入口；会话密钥只在一次请求生命周期内存在。"""
-
-    def __init__(self, key_path: Optional[str] = None, key_id: str = KEY_ID):
-        self.key_id = key_id
-        self.sm2 = SM2Service(key_path) if key_path else SM2Service()
-
-    @property
-    def public_key(self) -> str:
-        return self.sm2.public_key
-
-    def wrap_session_key(self, session_key: bytes) -> str:
-        if len(session_key) != SESSION_KEY_BYTES:
-            raise SecureTunnelError("SM4 会话密钥长度错误")
-        # 用 Base64 文本交给 SM2，避免随机二进制直接 UTF-8 解码。
-        encoded = base64.b64encode(session_key).decode("ascii")
-        return self.sm2.encrypt(encoded)
-
-    def unwrap_session_key(self, wrapped_key: str) -> bytes:
+    """Dedicated ignored local key; do not reuse the published repository demo key."""
+    def __init__(self, key_path=None):
+        path = Path(key_path or os.environ.get("WEEK4_SM2_KEY_FILE", LOCAL_DIR / "sm2.json"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        n = int(default_ecc_table["n"], 16)
         try:
-            key = base64.b64decode(self.sm2.decrypt(wrapped_key), validate=True)
+            with path.open("x", encoding="utf-8") as f:
+                json.dump({"private_key": f"{secrets.randbelow(n - 1) + 1:064x}"}, f)
+        except FileExistsError:
+            pass
+        private = json.loads(path.read_text(encoding="utf-8"))["private_key"]
+        if not re.fullmatch(r"[0-9a-f]{64}", private) or not 0 < int(private, 16) < n:
+            raise RuntimeError("Invalid tunnel private key file")
+        self._engine = CryptSM2(private_key=private, public_key="", mode=1)
+        self.public_key = self._engine._kg(int(private, 16), default_ecc_table["g"])
+        self._engine.public_key = self.public_key
+        self.key_id = "sm2-" + hashlib.sha256(bytes.fromhex(self.public_key)).hexdigest()[:16]
+    def wrap_session_key(self, key):
+        if len(key) != 16:
+            raise SecureTunnelError("Session key must be 16 bytes")
+        return _b64(self._engine.encrypt(key))
+    def unwrap_session_key(self, wrapped):
+        # gmssl.decrypt does not verify C3; authenticate C3 explicitly.
+        try:
+            raw = _b64d(wrapped)
+            if len(raw) != 112:
+                raise ValueError()
+            c1, c3 = raw[:64], raw[64:96]
+            x, y = int.from_bytes(c1[:32], "big"), int.from_bytes(c1[32:], "big")
+            p, a, b = (int(default_ecc_table[k], 16) for k in ("p", "a", "b"))
+            if x >= p or y >= p or (y*y - x*x*x - a*x - b) % p:
+                raise ValueError()
+            key = self._engine.decrypt(raw)
+            point = bytes.fromhex(self._engine._kg(int(self._engine.private_key, 16), c1.hex()))
+            expected = bytes.fromhex(sm3.sm3_hash(list(point[:32] + key + point[32:])))
+            if len(key) != 16 or not hmac.compare_digest(c3, expected):
+                raise ValueError()
+            return key
         except Exception as exc:
-            raise SecureTunnelError("会话密钥解封失败") from exc
-        if len(key) != SESSION_KEY_BYTES:
-            raise SecureTunnelError("解封后的会话密钥长度错误")
-        return key
-
+            raise SecureTunnelError("SM2 key wrap authentication failed") from exc
 
 class SecureTunnel:
-    """纯函数式安全隧道服务，供 Flask 中间件和测试调用。"""
-
-    def __init__(self, key_manager: Optional[TunnelKeyManager] = None,
-                 nonce_store: Optional[NonceStore] = None,
-                 clock_skew_seconds: int = CLOCK_SKEW_SECONDS):
+    def __init__(self, key_manager=None, nonce_store=None):
         self.keys = key_manager or TunnelKeyManager()
-        self.nonces = nonce_store or NonceStore()
-        self.clock_skew_seconds = clock_skew_seconds
-
+        self.nonces = nonce_store if nonce_store is not None else SQLiteNonceStore()
+        self.clock_skew_seconds = CLOCK_SKEW_SECONDS
+    def seal_request(self, payload, method, path, now=None):
+        key = secrets.token_bytes(16)
+        env = dict(version=VERSION, alg=ALGORITHM, key_id=self.keys.key_id,
+                   nonce=new_nonce(), ts=int(time.time() if now is None else now),
+                   wrapped_key=self.keys.wrap_session_key(key))
+        return _encrypt(payload, key, env, method, path), key
+    def seal(self, payload, method, path, now=None):
+        return self.seal_request(payload, method, path, now)[0]
+    def open_request(self, env, method, path, now=None):
+        now = int(time.time() if now is None else now)
+        _validate(env, self.keys.key_id, now)
+        key = self.keys.unwrap_session_key(env["wrapped_key"])
+        payload = _decrypt(env, key, method, path)
+        if not self.nonces.reserve(self.keys.key_id + ":" + env["nonce"], now):
+            raise SecureTunnelError("Nonce replay")
+        return payload, key
+    def open(self, env, method, path, now=None):
+        return self.open_request(env, method, path, now)[0]
+    def seal_response(self, payload, request_env, key, method, path, status=200):
+        env = dict(version=VERSION, alg=ALGORITHM, key_id=self.keys.key_id,
+                   nonce=new_nonce(), ts=int(time.time()), request_nonce=request_env["nonce"])
+        return _encrypt(payload, response_key(key, env["request_nonce"]), env, method, path, "response", status)
     @staticmethod
-    def _aad(version: str, key_id: str, ts: int, nonce: str, method: str, path: str) -> bytes:
-        return f"{version}|{key_id}|{ts}|{nonce}|{method.upper()}|{path}".encode("utf-8")
-
-    def seal(self, payload: Dict[str, Any], method: str, path: str,
-             now: Optional[int] = None) -> Dict[str, Any]:
-        if not isinstance(payload, dict):
-            raise SecureTunnelError("payload 必须是 JSON 对象")
-        ts = int(time.time() if now is None else now)
-        session_key = secrets.token_bytes(SESSION_KEY_BYTES)
-        nonce = secrets.token_bytes(NONCE_BYTES)
-        nonce_text = _b64url(nonce)
-        aad = self._aad(VERSION, self.keys.key_id, ts, nonce_text, method, path)
-        plaintext = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
-        encryptor = Cipher(algorithms.SM4(session_key), modes.GCM(nonce)).encryptor()
-        encryptor.authenticate_additional_data(aad)
-        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
-        envelope = TunnelEnvelope(
-            version=VERSION, key_id=self.keys.key_id, alg=ALGORITHM,
-            nonce=nonce_text, ts=ts, wrapped_key=self.keys.wrap_session_key(session_key),
-            ciphertext=_b64(ciphertext), tag=_b64(encryptor.tag),
-        )
-        return envelope.to_dict()
-
-    def open(self, value: Dict[str, Any], method: str, path: str,
-             now: Optional[int] = None) -> Dict[str, Any]:
-        envelope = TunnelEnvelope.from_dict(value)
-        if envelope.version != VERSION or envelope.alg != ALGORITHM or envelope.key_id != self.keys.key_id:
-            raise SecureTunnelError("不支持的安全隧道版本或密钥标识")
-        current = int(time.time() if now is None else now)
-        if abs(current - envelope.ts) > self.clock_skew_seconds:
-            raise SecureTunnelError("请求已超出时间窗")
-        nonce = _b64urld(envelope.nonce)
-        key = self.keys.unwrap_session_key(envelope.wrapped_key)
-        aad = self._aad(envelope.version, envelope.key_id, envelope.ts, envelope.nonce, method, path)
-        try:
-            decryptor = Cipher(algorithms.SM4(key), modes.GCM(nonce, _b64d(envelope.tag))).decryptor()
-            decryptor.authenticate_additional_data(aad)
-            plaintext = decryptor.update(_b64d(envelope.ciphertext)) + decryptor.finalize()
-            result = json.loads(plaintext.decode("utf-8"))
-        except Exception as exc:
-            raise SecureTunnelError("密文认证失败") from exc
-        if not isinstance(result, dict):
-            raise SecureTunnelError("解密结果必须是 JSON 对象")
-        # 认证成功后再占用 Nonce，避免攻击者用篡改包提前消耗合法请求的 Nonce。
-        if not self.nonces.reserve(envelope.nonce, current):
-            raise SecureTunnelError("Nonce 重放")
-        return result
+    def open_response(env, request_env, key, method, path, status=200):
+        _validate(env, request_env["key_id"], int(time.time()), "response")
+        if env["request_nonce"] != request_env["nonce"]:
+            raise SecureTunnelError("Response does not match request")
+        return _decrypt(env, response_key(key, env["request_nonce"]), method, path, "response", status)

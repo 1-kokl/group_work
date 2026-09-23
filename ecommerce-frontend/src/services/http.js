@@ -1,9 +1,5 @@
 import axios from 'axios';
-import {
-  isSecureTunnelEnvelope,
-  openSecureResponse,
-  sealSecureRequest
-} from '../utils/secure_tunnel';
+import { installSecureTunnelInterceptors } from './tunnel_axios';
 
 /* 开发环境可置空字符串，走 vue.config 代理；直连后端时设为 http://localhost:5000 */
 const API_BASE_URL =
@@ -231,6 +227,8 @@ async function requestRefreshToken() {
   }
 }
 
+installSecureTunnelInterceptors(http);
+
 http.interceptors.request.use(
   async (config) => {
     activeRequests += 1;
@@ -266,18 +264,6 @@ http.interceptors.request.use(
       config.headers[CSRF_HEADER] = csrfToken;
     }
 
-    // 仅显式设置 secureTunnel: true 的敏感接口进入应用层隧道。
-    if (config.secureTunnel && config.data && !config.__secureTunnelSealed) {
-      config.data = await sealSecureRequest(config.data, {
-        method: config.method || 'GET',
-        path: config.url || '/',
-        config: config.secureTunnel
-      });
-      config.__secureTunnelSealed = true;
-      config.headers = config.headers || {};
-      config.headers['X-Secure-Tunnel'] = 'v1';
-    }
-
     return config;
   },
   (error) => {
@@ -294,17 +280,6 @@ http.interceptors.response.use(
       response.headers?.[CSRF_HEADER];
     if (csrfFromHeader) {
       setCsrfToken(csrfFromHeader);
-    }
-
-    if (
-      response.config?.secureTunnel &&
-      isSecureTunnelEnvelope(response.data)
-    ) {
-      response.data = await openSecureResponse(response.data, {
-        method: response.config.method || 'GET',
-        path: response.config.url || '/',
-        config: response.config.secureTunnel
-      });
     }
 
     // 修复：保留完整的响应对象，而不是只返回 response.data
