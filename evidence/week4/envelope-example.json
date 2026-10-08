@@ -1,0 +1,10 @@
+{
+  "version": "v2",
+  "key_id": "sm2-<sha256-public-key-prefix>",
+  "alg": "SM4-GCM+SM2",
+  "nonce": "<base64url-12-byte-random>",
+  "ts": 1790000000,
+  "wrapped_key": "<base64-sm2-c1c3c2-16-byte-key>",
+  "ciphertext": "<base64-sm4-gcm-ciphertext>",
+  "tag": "<base64-16-byte-gcm-tag>"
+}

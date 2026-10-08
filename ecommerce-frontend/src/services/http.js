@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { installSecureTunnelInterceptors } from './tunnel_axios';
 
 /* 开发环境可置空字符串，走 vue.config 代理；直连后端时设为 http://localhost:5000 */
 const API_BASE_URL =
@@ -226,8 +227,10 @@ async function requestRefreshToken() {
   }
 }
 
+installSecureTunnelInterceptors(http);
+
 http.interceptors.request.use(
-  (config) => {
+  async (config) => {
     activeRequests += 1;
     emitLoadingEvent();
 
@@ -270,7 +273,7 @@ http.interceptors.request.use(
 );
 
 http.interceptors.response.use(
-  (response) => {
+  async (response) => {
     decrementRequest();
     const csrfFromHeader =
       response.headers?.[CSRF_HEADER.toLowerCase()] ||

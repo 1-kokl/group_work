@@ -139,6 +139,12 @@ def main():
     admin_token, admin_recovery, admin_secret, admin_mfa = \
         do_totp_bind_confirm_verify(client, "admin", "Admin@123", "管理员")
 
+    # pending MFA 令牌不能绕过二次认证访问普通受保护接口
+    first_step = login_step1(client, "admin", "Admin@123")
+    pending_token = first_step.get_json()["data"]["mfa_token"]
+    check("pending MFA 令牌访问管理员接口 -> 401",
+          get_json(client, "/api/v1/admin/users", pending_token).status_code == 401)
+
     # 恢复码一次性
     rc = admin_recovery[0]
     r = post_json(client, "/api/v1/auth/totp/recover", {"recovery_code": rc}, token=admin_mfa)

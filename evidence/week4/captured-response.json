@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-09-22T15:38:38Z",
+  "transport": "HTTP (localhost real response)",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "code": 200,
+    "data": {
+      "alg": "SM4-GCM+SM2",
+      "ciphertext": "ry7+K5vPdTjOgVDfld70DC9T7rMyAfY3CA7ANera09wbCAHu6iPlVTMKQa3+iLrGMl2DlEAjLmipDzd+Ep5XPig62wDu3Y9I3/ezpNUp6P6jCyYYUeYGyqigGBJSRGcSeEI3/Tv65+A6tJMdLciU0eVSSZ/OmCPUu3Wx8WcPZgXmvHfuiRXSu+gB",
+      "key_id": "sm2-889c09204f35e7cb",
+      "nonce": "oPV9v61rmX9t8cDr",
+      "request_nonce": "TXmVdkUgE1a8KSvW",
+      "tag": "s+LjPxFdtmk/kVCFD4HNpQ==",
+      "ts": 1790091518,
+      "version": "v2"
+    },
+    "msg": "安全隧道处理成功",
+    "timestamp": "2026-09-22 23:38:38"
+  }
+}
