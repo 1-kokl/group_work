@@ -1,0 +1,18 @@
+{
+  "samples": 535,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 18,
+  "p95_ms": 449,
+  "p99_ms": 3876,
+  "mean_ms": 132.553,
+  "throughput_rps": 26.75,
+  "window_start_ms": 1792640707817,
+  "window_end_ms": 1792640727817,
+  "error_codes": {},
+  "scenario": "orders",
+  "concurrency": 10,
+  "repeat": 1,
+  "condition": "orders-c10-r1"
+}

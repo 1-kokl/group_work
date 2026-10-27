@@ -21,7 +21,7 @@ VERSION = "v2"
 ALGORITHM = "SM4-GCM+SM2"
 CLOCK_SKEW_SECONDS = 300
 NONCE_TTL_SECONDS = 601
-LOCAL_DIR = Path(__file__).resolve().parents[2] / ".local" / "week4"
+LOCAL_DIR = Path(os.environ.get("APP_TUNNEL_DIR", Path(__file__).resolve().parents[2] / ".local" / "week4"))
 REQUEST_FIELDS = {"version", "key_id", "alg", "nonce", "ts", "wrapped_key", "ciphertext", "tag"}
 RESPONSE_FIELDS = (REQUEST_FIELDS - {"wrapped_key"}) | {"request_nonce"}
 

@@ -2,10 +2,17 @@ from app.extensions import db
 from datetime import datetime
 import uuid
 
+_UNSET = object()
+
 
 class Product(db.Model):
     """商品模型"""
     __tablename__ = "products"
+    __table_args__ = (
+        db.Index("idx_products_category_created", "category", "created_at"),
+        db.Index("idx_products_status_category_created", "status", "category", "created_at"),
+        db.Index("idx_products_created", "created_at"),
+    )
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(200), nullable=False, comment="商品名称")
@@ -19,25 +26,15 @@ class Product(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.BigInteger, comment="创建者ID")
 
-    def to_dict(self):
-        # 查询卖家用户名（通过 SQLite 直接查询）
-        import sqlite3
-        import os
-        
-        seller_username = None
-        if self.created_by:
-            try:
-                db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'user.db')
-                conn = sqlite3.connect(db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute("SELECT username FROM users WHERE id = ?", (self.created_by,))
-                row = cursor.fetchone()
-                if row:
-                    seller_username = row["username"]
-                conn.close()
-            except Exception as e:
-                print(f"查询卖家用户名失败: {e}")
+    def to_dict(self, seller_username=_UNSET):
+        if seller_username is _UNSET:
+            seller_username = None
+            if self.created_by:
+                from app.services.user_service import _conn
+                with _conn() as conn:
+                    row = conn.execute("SELECT username FROM users WHERE id = ?", (self.created_by,)).fetchone()
+                    if row:
+                        seller_username = row["username"]
         
         return {
             "id": self.id,
@@ -58,6 +55,10 @@ class Product(db.Model):
 class Cart(db.Model):
     """购物车模型"""
     __tablename__ = "carts"
+    __table_args__ = (
+        db.Index("idx_carts_user_selected", "user_id", "selected"),
+        db.Index("idx_carts_user_product", "user_id", "product_id"),
+    )
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.BigInteger, nullable=False, comment="用户ID")
@@ -88,6 +89,7 @@ class Cart(db.Model):
 class Order(db.Model):
     """订单模型"""
     __tablename__ = "orders"
+    __table_args__ = (db.Index("idx_orders_user_status_created", "user_id", "status", "created_at"),)
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     order_no = db.Column(db.String(64), unique=True, nullable=False, comment="订单号")
@@ -134,6 +136,7 @@ class Order(db.Model):
 class OrderItem(db.Model):
     """订单项模型"""
     __tablename__ = "order_items"
+    __table_args__ = (db.Index("idx_order_items_order_id", "order_id"),)
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     order_id = db.Column(db.String(36), db.ForeignKey("orders.id"), nullable=False, comment="订单ID")

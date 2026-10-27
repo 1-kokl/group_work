@@ -1,0 +1,21 @@
+.............                                                            [100%]
+============================== warnings summary ===============================
+tests/week9/test_performance_safety.py::test_sm3_native_matches_reference
+  C:\Users\lilili\Desktop\group-work\group_work-main\run.py:16: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+tests/week9/test_performance_safety.py: 104 warnings
+  C:\Users\lilili\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\sql\schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/week9/test_performance_safety.py::test_duplicate_checkout_and_cancel_are_atomic
+  C:\Users\lilili\Desktop\group-work\group_work-main\app\services\ecommerce_service.py:399: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    order.updated_at = datetime.utcnow()
+
+tests/week9/test_performance_safety.py::test_orders_remain_owned_and_mfa_token_is_rejected
+  C:\Users\lilili\Desktop\group-work\group_work-main\app\services\ecommerce_service.py:356: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    order = Order.query.get(order_id)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\Users\lilili\Desktop\group-work\group_work-main\evidence\week9\regression-final\week9.xml -
+13 passed, 107 warnings in 2.04s

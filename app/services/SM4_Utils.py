@@ -8,7 +8,7 @@ from gmssl.sm4 import CryptSM4, SM4_ENCRYPT, SM4_DECRYPT
 
 class SM4Service:
     def __init__(self, key_path="app/sm4_key.txt"):
-        self.key_path = key_path
+        self.key_path = os.environ.get("APP_SM4_KEY_PATH", key_path)
         self.key = self._load_or_generate_key()
         self.sm4 = CryptSM4()
 

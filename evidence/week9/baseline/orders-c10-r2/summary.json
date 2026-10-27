@@ -1,0 +1,20 @@
+{
+  "samples": 572,
+  "failures": 1,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.1748,
+  "p50_ms": 17,
+  "p95_ms": 887,
+  "p99_ms": 3228,
+  "mean_ms": 159.299,
+  "throughput_rps": 28.6,
+  "window_start_ms": 1792640972074,
+  "window_end_ms": 1792640992074,
+  "error_codes": {
+    "400": 1
+  },
+  "scenario": "orders",
+  "concurrency": 10,
+  "repeat": 2,
+  "condition": "orders-c10-r2"
+}

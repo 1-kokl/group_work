@@ -19,15 +19,41 @@ Base = declarative_base()
 app = Flask(__name__)
 
 # 配置数据库
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
+ecommerce_db = os.environ.get('APP_ECOMMERCE_DB_PATH')
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    'sqlite:///' + os.path.abspath(ecommerce_db).replace('\\', '/')
+    if ecommerce_db else 'sqlite:///user.db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 16, 'max_overflow': 16, 'pool_timeout': 30,
+    'connect_args': {'timeout': 30},
+}
 
 # 初始化 SQLAlchemy
 db.init_app(app)
+from app.database import configure_sqlite_engine
+with app.app_context():
+    configure_sqlite_engine(db.engine)
 
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+allowed_origins = [value.strip() for value in os.environ.get(
+    'APP_ALLOWED_ORIGINS', 'http://localhost:8080,http://127.0.0.1:8080'
+).split(',') if value.strip()]
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 init_api(app)
 register_blueprints(app)
+
+
+def apply_database_indexes():
+    """Also migrate indexes on existing tables; create_all alone does not do this."""
+    from app.models.ecommerce_models import Product, Cart, Order, OrderItem
+    for model in (Product, Cart, Order, OrderItem):
+        for index in model.__table__.indexes:
+            index.create(bind=db.engine, checkfirst=True)
+
+if os.environ.get('APP_METRICS_FILE'):
+    from app.monitoring import install_monitoring
+    install_monitoring(app, db)
 
 # ========== 静态文件服务（图片上传） ==========
 upload_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
@@ -77,7 +103,7 @@ def init_certificates_db():
 
 # ========== Flask启动函数 ==========
 def run_flask():
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host=os.environ.get('APP_HOST', '127.0.0.1'), port=5000, debug=False)
 
 # ========== 命令行菜单（保留原逻辑） ==========
 def cli_menu():
@@ -107,6 +133,7 @@ def main():
         # 使用 Flask-SQLAlchemy 创建所有模型表
         with app.app_context():
             db.create_all()
+            apply_database_indexes()
             print("✅ SQLAlchemy 模型表创建成功")
 
         # 初始化电商数据表

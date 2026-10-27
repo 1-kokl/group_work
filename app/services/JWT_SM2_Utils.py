@@ -1,12 +1,20 @@
 import time
 import json
 import base64
+from collections import OrderedDict
+import copy
+import secrets
+import threading
 from .SM2_Utils import SM2Service  # 这里你已经加了点 ✔️ 正确
 
 class JWTSM2Service:
     def __init__(self):
         self.sm2_service = SM2Service()
         self._token_blacklist = set()
+        self._verified = OrderedDict()
+        self._cache_lock = threading.Lock()
+        self._cache_capacity = 2048
+        self._cache_ttl = 5.0
         # JWT头部（自定义，标识SM2算法）
         self.header = {
             "alg": "SM2",
@@ -35,6 +43,7 @@ class JWTSM2Service:
         :return: JWT令牌字符串
         """
         payload = dict(payload)
+        payload.setdefault("jti", secrets.token_hex(16))
         # 添加过期时间
         payload["exp"] = int(time.time()) + expires_in
         # 编码头部和载荷
@@ -54,8 +63,15 @@ class JWTSM2Service:
         :return: 验证通过返回载荷，失败抛出异常
         """
         try:
-            if token in self._token_blacklist:
-                raise RuntimeError("Token已注销")
+            now = time.time()
+            with self._cache_lock:
+                if token in self._token_blacklist:
+                    raise RuntimeError("Token已注销")
+                cached = self._verified.get(token)
+                if cached and cached[0] > time.monotonic() and cached[1].get("exp", 0) > now:
+                    self._verified.move_to_end(token)
+                    return copy.deepcopy(cached[1])
+                self._verified.pop(token, None)
             # 拆分JWT
             header_b64, payload_b64, sign_b64 = token.split('.')
             # 验证签名
@@ -64,8 +80,16 @@ class JWTSM2Service:
                 raise RuntimeError("SM2验签失败")
             # 解码载荷并检查过期时间
             payload = json.loads(self._base64_decode(payload_b64))
-            if payload.get("exp", 0) < int(time.time()):
+            if not isinstance(payload, dict) or payload.get("exp", 0) <= time.time():
                 raise RuntimeError("Token已过期")
+            with self._cache_lock:
+                # A logout may occur while the signature is being verified.
+                if token in self._token_blacklist:
+                    raise RuntimeError("Token已注销")
+                self._verified[token] = (time.monotonic()+self._cache_ttl, copy.deepcopy(payload))
+                self._verified.move_to_end(token)
+                while len(self._verified) > self._cache_capacity:
+                    self._verified.popitem(last=False)
             return payload
         except Exception as e:
             raise RuntimeError(f"Token验证失败: {str(e)}")
@@ -101,7 +125,9 @@ class JWTSM2Service:
             return None
 
     def add_to_blacklist(self, token):
-        self._token_blacklist.add(token)
+        with self._cache_lock:
+            self._token_blacklist.add(token)
+            self._verified.pop(token, None)
 
 # ====================== ✅【唯一修改：在这里添加这一行】======================
 # 作用：创建一个可以被外部导入的 jwt_service 实例

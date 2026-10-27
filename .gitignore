@@ -18,9 +18,8 @@ __pycache__/
 **/node_modules/
 **/node_modules/.cache/
 
-# 前端依赖锁定文件
-**/package-lock.json
-**/yarn.lock
+# 前端构建产物；依赖锁文件应保留以便复现
+**/dist/
 
 # ===== 本次补充：敏感文件与生成目录（禁止上传 GitHub）=====
 # 数据库（含用户/银行数据）
