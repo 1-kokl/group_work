@@ -116,7 +116,12 @@ def list_products():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 10, type=int)
     category = request.args.get("category")
-    status = request.args.get("status", type=bool)
+    raw_status = request.args.get("status")
+    if page < 1 or not 1 <= per_page <= 100:
+        return api_response(400, "页码必须大于0，每页数量必须在1至100之间")
+    if raw_status is not None and raw_status.lower() not in ("true", "false", "1", "0"):
+        return api_response(400, "商品状态参数无效")
+    status = None if raw_status is None else raw_status.lower() in ("true", "1")
     keyword = request.args.get("keyword")
 
     result = ProductService.list_products(

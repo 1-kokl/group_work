@@ -7,6 +7,8 @@ import secrets
 
 def _default_sm2_key_path():
     """与进程工作目录无关，始终指向 app/sm2_key.txt。"""
+    if os.environ.get("APP_SM2_KEY_PATH"):
+        return os.environ["APP_SM2_KEY_PATH"]
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(os.path.join(here, "..", "sm2_key.txt"))
 

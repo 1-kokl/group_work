@@ -1,116 +1,96 @@
-"""
-一键安全扫描脚本 —— 任务书第 7 周节点「SAST / DAST 与依赖扫描」可复现入口。
-
-用法：
-    PYTHONUTF8=1 python run_security_scan.py
-
-会依次执行（缺工具则跳过并提示安装命令）：
-    1. SAST      : bandit 静态扫描后端 Python 代码 -> bandit_report.json
-    2. 依赖扫描   : pip-audit 扫描 Python 依赖 -> pipaudit_report.json
-    3. 依赖扫描   : npm audit 扫描前端依赖（需在 ecommerce-frontend/ 且已 npm install）
-    4. DAST      : 提示运行仓库内已有的动态攻击脚本（重放 / 中间人篡改 / 安全隧道）
-
-产出文件均落在项目根目录，供 docs/05、docs/06 引用。
-"""
+"""Reproducible local SAST and dependency evidence; findings are not silently fixed."""
+import argparse
+import importlib.metadata
+import hashlib
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-
-
-def have(cmd):
-    return shutil.which(cmd) is not None
-
-
-def run(cmd, cwd=None):
-    print(f"\n$ {' '.join(cmd)}")
-    return subprocess.run(cmd, cwd=cwd or ROOT)
-
-
-def sast_bandit():
-    print("\n" + "=" * 70)
-    print("[1] SAST — bandit 静态扫描")
-    print("=" * 70)
-    if not have("bandit"):
-        try:
-            import bandit  # noqa
-        except ImportError:
-            print("未安装 bandit，可执行: pip install bandit")
-            return
-    run([sys.executable, "-m", "bandit", "-r", "app", "-f", "json",
-         "-o", "bandit_report.json", "--exit-zero"])
-    print("已生成 bandit_report.json")
-
-
-def dep_pip_audit():
-    print("\n" + "=" * 70)
-    print("[2] 依赖扫描 — pip-audit（Python）")
-    print("=" * 70)
-    if not have("pip-audit"):
-        try:
-            import pip_audit  # noqa
-        except ImportError:
-            print("未安装 pip-audit，可执行: pip install pip-audit")
-            return
-    # requirements.txt 含中文注释会导致解析失败，这里只审计核心依赖
-    req = os.path.join(ROOT, "requirements_core.txt")
-    if not os.path.exists(req):
-        core = [
-            "Flask==3.1.3", "flask-cors==6.0.2", "Flask-JWT-Extended==4.7.1",
-            "flask-restx==1.3.2", "flask-sqlalchemy==3.1.1", "flask-swagger-ui==5.32.2",
-            "gmssl==3.2.2", "cryptography==45.0.6", "SQLAlchemy==2.0.48",
-            "pytz==2025.1", "PyJWT==2.12.1", "requests==2.32.3",
-            "PyYAML==6.0.2", "Werkzeug==3.1.6", "Jinja2==3.1.6",
-        ]
-        with open(req, "w", encoding="utf-8") as f:
-            f.write("\n".join(core) + "\n")
-    run([sys.executable, "-m", "pip_audit", "-r", req,
-         "--format", "json", "-o", "pipaudit_report.json"])
-    print("已生成 pipaudit_report.json")
-
-
-def dep_npm_audit():
-    print("\n" + "=" * 70)
-    print("[3] 依赖扫描 — npm audit（前端）")
-    print("=" * 70)
-    fe = os.path.join(ROOT, "ecommerce-frontend")
-    if not os.path.isdir(os.path.join(fe, "node_modules")):
-        print("前端 node_modules 不存在，跳过（需先 cd ecommerce-frontend && npm install）")
-        print("复现命令: cd ecommerce-frontend && npm audit --json > npm_audit_report.json")
-        return
-    if not (have("npm") or have("npm.cmd")):
-        print("未找到 npm，跳过")
-        return
-    run(["npm", "audit", "--json"], cwd=fe)
-    print("npm audit 完成")
-
-
-def dast_hint():
-    print("\n" + "=" * 70)
-    print("[4] DAST — 动态攻击脚本（仓库内已有，需先启动后端与银行）")
-    print("=" * 70)
-    print("  # 启动服务")
-    print("  python run.py            # 后端 5000")
-    print("  python mock_bank.py      # 银行 8080")
-    print("  # 动态安全测试")
-    print("  PYTHONUTF8=1 python test_secure_tunnel.py   # 安全隧道（篡改/重放/过期/AAD，8 项）")
-    print("  PYTHONUTF8=1 python test_mitm_attack.py     # 中间人篡改")
-    print("  PYTHONUTF8=1 python test_replay_attack.py   # 重放攻击")
-    print("  # 更完整 DAST 基线可引入 OWASP ZAP：")
-    print("  #   zap-baseline.py -t http://localhost:5000")
+ROOT = Path(__file__).resolve().parent
+TOOLS = ROOT / ".local/tools/python"
+sys.path.insert(0, str(TOOLS))
+CORE = ["Flask", "Flask-Cors", "Flask-JWT-Extended", "flask-restx", "Flask-SQLAlchemy",
+        "flask-swagger-ui", "SQLAlchemy", "cryptography", "gmssl", "PyJWT", "pycryptodome",
+        "requests", "Werkzeug", "psutil", "pytz"]
 
 
 def main():
-    sast_bandit()
-    dep_pip_audit()
-    dep_npm_audit()
-    dast_hint()
-    print("\n" + "=" * 70)
-    print("扫描完成。汇总见 docs/05_SAST_DAST_基线报告.md 与 docs/06_漏洞清单.md")
-    print("=" * 70)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=ROOT / "evidence/week7" / datetime.now(timezone.utc).strftime("scan-%Y%m%dT%H%M%SZ"))
+    parser.add_argument("--frontend", action="store_true", help="Resolve the frontend manifest in an isolated directory and run npm audit")
+    args = parser.parse_args()
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONPATH"] = str(TOOLS)
+    packages = {name: importlib.metadata.version(name) for name in CORE}
+    requirements = "\n".join(f"{name}=={version}" for name, version in packages.items())+"\n"
+    (output / "effective-requirements.txt").write_text(requirements, encoding="utf-8")
+    actions = []
+
+    def run(name, command, accepted=(0, 1), timeout=300, cwd=ROOT):
+        with (output / (name+".stdout.log")).open("w", encoding="utf-8") as stdout, (output / (name+".stderr.log")).open("w", encoding="utf-8") as stderr:
+            try:
+                result = subprocess.run(command, cwd=cwd, env=env, stdout=stdout, stderr=stderr, timeout=timeout)
+                row = {"name": name, "exit_code": result.returncode, "completed": result.returncode in accepted, "command": command}
+            except (OSError, subprocess.TimeoutExpired) as error:
+                row = {"name": name, "completed": False, "error": str(error), "command": command}
+        actions.append(row)
+        print(json.dumps(row), flush=True)
+        return row
+
+    run("bandit", [sys.executable, "-m", "bandit", "-r", "app", "run.py", "mock_bank.py", "-f", "json", "-o", str(output / "bandit_report.json")])
+    run("pip-audit", [sys.executable, "-m", "pip_audit", "-r", str(output / "effective-requirements.txt"),
+                      "--no-deps", "--disable-pip", "--format", "json", "--progress-spinner", "off",
+                      "--timeout", "20", "--cache-dir", str(ROOT / ".local/tools/pip-audit-cache"),
+                      "-o", str(output / "pipaudit_report.json")])
+    if args.frontend:
+        npm = shutil.which("npm.cmd") or shutil.which("npm")
+        frontend = ROOT / ".local/week7" / (output.name+"-frontend")
+        frontend.mkdir(parents=True, exist_ok=False)
+        shutil.copy2(ROOT / "ecommerce-frontend/package.json", frontend / "package.json")
+        # No lifecycle scripts, node_modules, or production credentials are needed.
+        if npm:
+            resolution = run("npm-lock", [npm, "install", "--package-lock-only", "--ignore-scripts", "--legacy-peer-deps",
+                                          "--no-audit", "--no-fund", "--cache", str(ROOT / ".local/tools/npm-cache")], accepted=(0,), timeout=600, cwd=frontend)
+            if resolution["completed"]:
+                shutil.copy2(frontend / "package-lock.json", output / "frontend-package-lock.json")
+                run("npm-audit", [npm, "audit", "--json", "--legacy-peer-deps", "--cache", str(ROOT / ".local/tools/npm-cache")], cwd=frontend)
+                shutil.copy2(output / "npm-audit.stdout.log", output / "npm_audit_report.json")
+        else:
+            actions.append({"name": "npm-audit", "completed": False, "error": "npm not installed"})
+    state = {
+        "State": {"objective": "Close local week7 reproducibility gaps", "scope": "Owned local repository and synthetic loopback test service",
+                  "authorization": "User requested local completion on 2026-10-22", "phase": "Evidence collection",
+                  "confirmed_findings": "See actual raw scanner output; not inferred from earlier reports",
+                  "open_questions": "Manual triage and patch prioritization for any remaining alerts",
+                  "next_step_menu": ["Review current findings", "Apply scoped fixes and retest", "Prepare final acceptance package"]},
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(), "runtime_packages": packages,
+        "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in [ROOT / "run.py", ROOT / "mock_bank.py", *sorted((ROOT / "app").rglob("*.py"))]},
+        "tools": {name: importlib.metadata.version(name) for name in ["bandit", "pip-audit"]},
+        "actions": actions,
+        "limits": ["Python audit covers pinned direct runtime packages, not a complete transitive lock",
+                   "Frontend audit resolves package.json now; it is not an audit of previously shipped dist assets",
+                   "Exit 1 from scanners indicates findings; operational errors are separately checked"],
+    }
+    (output / "scan-state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+    required = ["bandit_report.json", "pipaudit_report.json"]
+    completed = all(row["completed"] for row in actions) and all((output / name).is_file() for name in required)
+    for name in required + (["npm_audit_report.json"] if args.frontend else []):
+        try:
+            value = json.loads((output / name).read_text(encoding="utf-8-sig"))
+            if "error" in value:
+                completed = False
+        except (ValueError, OSError):
+            completed = False
+    raise SystemExit(0 if completed else 2)
 
 
 if __name__ == "__main__":

@@ -8,8 +8,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
 # 配置路径
-CA_KEY_PATH = "certs/rootCA.key"
-CA_CERT_PATH = "certs/rootCA.crt"
+CA_KEY_PATH = os.environ.get("APP_CA_KEY_PATH", "certs/rootCA.key")
+CA_CERT_PATH = os.environ.get("APP_CA_CERT_PATH", "certs/rootCA.crt")
 CERT_VALID_DAYS = 1095
 
 class CertService:

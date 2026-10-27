@@ -1,0 +1,8 @@
+[main]	INFO	profile include tests: None
+[main]	INFO	profile exclude tests: None
+[main]	INFO	cli include tests: None
+[main]	INFO	cli exclude tests: None
+[tester]	WARNING	nosec encountered (B608), but no failed test on file app\services\ecommerce_service.py:25
+[tester]	WARNING	nosec encountered (B608), but no failed test on file app\services\ecommerce_service.py:25
+[tester]	WARNING	nosec encountered (B608), but no failed test on file app\services\ecommerce_service.py:25
+[json]	INFO	JSON output written to file: C:\Users\lilili\Desktop\group-work\group_work-main\evidence\week7\scans-final\bandit_report.json

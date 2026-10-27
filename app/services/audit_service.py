@@ -11,15 +11,14 @@ import json
 import os
 import sqlite3
 from datetime import datetime
+from app.database import database_connection
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DB_PATH = os.path.join(_ROOT, "user.db")
+DB_PATH = os.environ.get("APP_AUDIT_DB_PATH", os.environ.get("APP_USER_DB_PATH", os.path.join(_ROOT, "user.db")))
 
 
 def _conn():
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
-    return c
+    return database_connection(DB_PATH)
 
 
 def _ensure_table():

@@ -1,0 +1,18 @@
+{
+  "samples": 1606,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 462,
+  "p95_ms": 1307,
+  "p99_ms": 3608,
+  "mean_ms": 612.831,
+  "throughput_rps": 80.3,
+  "window_start_ms": 1792641089363,
+  "window_end_ms": 1792641109363,
+  "error_codes": {},
+  "scenario": "login",
+  "concurrency": 50,
+  "repeat": 2,
+  "condition": "login-c50-r2"
+}

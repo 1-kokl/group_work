@@ -1,0 +1,18 @@
+{
+  "samples": 4377,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 45,
+  "p95_ms": 51,
+  "p99_ms": 54,
+  "mean_ms": 45.247,
+  "throughput_rps": 218.85,
+  "window_start_ms": 1792640678936,
+  "window_end_ms": 1792640698936,
+  "error_codes": {},
+  "scenario": "products",
+  "concurrency": 10,
+  "repeat": 1,
+  "condition": "products-c10-r1"
+}

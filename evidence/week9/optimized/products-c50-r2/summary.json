@@ -1,0 +1,18 @@
+{
+  "samples": 7843,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 126,
+  "p95_ms": 144,
+  "p99_ms": 153,
+  "mean_ms": 126.653,
+  "throughput_rps": 392.15,
+  "window_start_ms": 1792642043660,
+  "window_end_ms": 1792642063660,
+  "error_codes": {},
+  "scenario": "products",
+  "concurrency": 50,
+  "repeat": 2,
+  "condition": "products-c50-r2"
+}

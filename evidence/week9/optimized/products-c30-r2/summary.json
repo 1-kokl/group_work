@@ -1,0 +1,18 @@
+{
+  "samples": 8785,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 67,
+  "p95_ms": 77,
+  "p99_ms": 82,
+  "mean_ms": 67.833,
+  "throughput_rps": 439.25,
+  "window_start_ms": 1792641950001,
+  "window_end_ms": 1792641970001,
+  "error_codes": {},
+  "scenario": "products",
+  "concurrency": 30,
+  "repeat": 2,
+  "condition": "products-c30-r2"
+}

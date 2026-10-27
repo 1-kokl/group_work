@@ -1,4 +1,5 @@
 from gmssl.sm3 import sm3_hash as _gmssl_sm3_hash, bytes_to_list
+import hashlib
 
 
 def sm3_hash(data):
@@ -11,7 +12,11 @@ def sm3_hash(data):
         data = data.encode("utf-8")
     elif not isinstance(data, bytes):
         raise TypeError("输入数据仅支持字符串/字节串")
-    return _gmssl_sm3_hash(bytes_to_list(data))
+    try:
+        return hashlib.new("sm3", data).hexdigest()
+    except ValueError:
+        # Some OpenSSL builds omit SM3; preserve the existing portable result.
+        return _gmssl_sm3_hash(bytes_to_list(data))
 
 
 def hash_password(password):

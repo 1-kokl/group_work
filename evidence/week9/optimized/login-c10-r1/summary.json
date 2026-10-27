@@ -1,0 +1,18 @@
+{
+  "samples": 2911,
+  "failures": 0,
+  "prerequisite_failures": 0,
+  "error_rate_pct": 0.0,
+  "p50_ms": 13,
+  "p95_ms": 197,
+  "p99_ms": 1214,
+  "mean_ms": 67.055,
+  "throughput_rps": 145.55,
+  "window_start_ms": 1792641569876,
+  "window_end_ms": 1792641589876,
+  "error_codes": {},
+  "scenario": "login",
+  "concurrency": 10,
+  "repeat": 1,
+  "condition": "login-c10-r1"
+}

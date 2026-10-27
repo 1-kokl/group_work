@@ -811,4 +811,4 @@ if __name__ == "__main__":
     print("   健康检查: http://localhost:8080/health")
     print("=" * 60)
     
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host=os.environ.get("BANK_HOST", "127.0.0.1"), port=8080, debug=False)
