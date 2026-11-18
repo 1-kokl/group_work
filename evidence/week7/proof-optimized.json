@@ -1,0 +1,42 @@
+{
+  "source": "C:\\Users\\lilili\\Desktop\\group-work\\group_work-main",
+  "synthetic": true,
+  "probes": [
+    {
+      "id": "W9-01",
+      "property": "bounded_pagination",
+      "status": 400,
+      "returned_items": 0,
+      "fixed": true
+    },
+    {
+      "id": "W9-02",
+      "property": "cors_allowlist",
+      "allow_origin": null,
+      "fixed": true
+    },
+    {
+      "id": "W9-03",
+      "property": "positive_cart_quantity",
+      "cart_status": 400,
+      "fixed": true
+    },
+    {
+      "id": "W9-04",
+      "property": "atomic_order_rollback",
+      "status": 400,
+      "stock_before": [
+        1000000,
+        1000000
+      ],
+      "stock_after": [
+        1000000,
+        1000000
+      ],
+      "order_delta": 0,
+      "item_delta": 0,
+      "injected_failures": 2,
+      "fixed": true
+    }
+  ]
+}

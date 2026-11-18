@@ -1,0 +1,67 @@
+{
+  "baseline": {
+    "plan": [
+      [
+        7,
+        0,
+        216,
+        "SCAN products"
+      ],
+      [
+        31,
+        0,
+        0,
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    ],
+    "indexes": [
+      [
+        0,
+        "sqlite_autoindex_products_1",
+        1,
+        "pk",
+        0
+      ]
+    ]
+  },
+  "optimized": {
+    "plan": [
+      [
+        8,
+        0,
+        62,
+        "SEARCH products USING INDEX idx_products_category_created (category=?)"
+      ]
+    ],
+    "indexes": [
+      [
+        0,
+        "idx_products_created",
+        0,
+        "c",
+        0
+      ],
+      [
+        1,
+        "idx_products_status_category_created",
+        0,
+        "c",
+        0
+      ],
+      [
+        2,
+        "idx_products_category_created",
+        0,
+        "c",
+        0
+      ],
+      [
+        3,
+        "sqlite_autoindex_products_1",
+        1,
+        "pk",
+        0
+      ]
+    ]
+  }
+}

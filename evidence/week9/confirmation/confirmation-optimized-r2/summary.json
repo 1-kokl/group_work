@@ -1,0 +1,20 @@
+[
+  {
+    "samples": 2342,
+    "failures": 0,
+    "prerequisite_failures": 0,
+    "error_rate_pct": 0.0,
+    "p50_ms": 316,
+    "p95_ms": 580,
+    "p99_ms": 1928,
+    "mean_ms": 394.843,
+    "throughput_rps": 117.1,
+    "window_start_ms": 1792642238001,
+    "window_end_ms": 1792642258001,
+    "error_codes": {},
+    "scenario": "login",
+    "concurrency": 50,
+    "repeat": 1,
+    "condition": "login-c50-r1"
+  }
+]

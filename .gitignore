@@ -1,0 +1,44 @@
+
+# 敏感数据文件（自动添加，禁止GitHub同步）
+user_registry.txt
+# 敏感数据文件（自动添加，禁止GitHub同步）
+ecommerce.db
+user.db
+**/sm2_key.txt
+**/sm4_key.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 前端构建缓存（勿提交）
+**/node_modules/
+**/node_modules/.cache/
+
+# 前端构建产物；依赖锁文件应保留以便复现
+**/dist/
+
+# ===== 本次补充：敏感文件与生成目录（禁止上传 GitHub）=====
+# 数据库（含用户/银行数据）
+*.db
+bank.db
+instance/
+
+# 私钥/密钥（明文敏感，绝不公开）
+bank_sm2_key.txt
+certs/rootCA.key
+
+# 运行生成目录
+uploads/
+venv/
+.venv/
+
+# 本地工具配置
+.idea/
+.claude/
+# Local Week 4 keys, replay store and runtime logs
+.local/
+*.sqlite3

@@ -1,0 +1,52 @@
+[SM2] 生成新私钥...
+[SM2] 密钥对已保存: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-rbac\keys\sm2.txt
+✅ 已加载电商密钥对
+⚠️ 银行公钥文件不存在，尝试从bank_sm2_key.txt读取
+[SM2] 已读取私钥: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-rbac\keys\sm2.txt
+[SM2] 密钥对已保存: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-rbac\keys\sm2.txt
+======================================================================
+RBAC + MFA 第一阶段自动化验收测试
+======================================================================
+演示账号就绪：新建 ['admin', 'auditor', 'merchant1', 'merchant2', 'buyer'] | 已存在 []
+
+[1] 角色无越权
+  [PASS] 普通用户登录（无需 TOTP）
+  [PASS] 普通用户访问管理员接口 -> 403
+  [PASS] 普通用户创建商品 -> 403
+  [PASS] 普通用户访问审计日志 -> 403
+  [PASS] 商户1 创建商品 -> 201
+  [PASS] 商户2 修改商户1商品 -> 403（跨商户越权）
+  [PASS] 商户2 删除商户1商品 -> 403（跨商户越权）
+  [PASS] 商户1 修改自己的商品 -> 200
+
+[2] 管理员 TOTP 双因素 + 关键操作可追溯
+  [PASS] 管理员 登录第一步返回 requires_totp
+  [PASS] 管理员 TOTP 绑定初始化
+  [PASS] 管理员 返回 otpauth 扫码串
+  [PASS] 管理员 TOTP 确认绑定
+  [PASS] 管理员 下发 10 个恢复码
+  [PASS] 管理员 验证码防重放（复用被拒）
+  [PASS] 管理员 TOTP 二次验证登录成功
+  [PASS] pending MFA 令牌访问管理员接口 -> 401
+  [PASS] 恢复码登录成功
+  [PASS] 恢复码二次使用失效（一次性）
+  [PASS] 管理员修改用户角色 -> 200
+  [PASS] 管理员关键操作可追溯（审计日志含 USER_ROLE_CHANGE）
+  [PASS] 越权拒绝被记录（ACCESS_DENIED 日志）
+
+[3] 审计员只读
+  [PASS] 审计员 登录第一步返回 requires_totp
+  [PASS] 审计员 TOTP 绑定初始化
+  [PASS] 审计员 返回 otpauth 扫码串
+  [PASS] 审计员 TOTP 确认绑定
+  [PASS] 审计员 下发 10 个恢复码
+  [PASS] 审计员 验证码防重放（复用被拒）
+  [PASS] 审计员 TOTP 二次验证登录成功
+  [PASS] 审计员查看审计日志 -> 200
+  [PASS] 审计员导出审计日志 -> 200
+  [PASS] 审计员访问用户管理 -> 403（越权）
+  [PASS] 审计员创建商品 -> 403（越权）
+
+======================================================================
+结果：通过 32 项，失败 0 项
+======================================================================

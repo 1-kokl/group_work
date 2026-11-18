@@ -1,0 +1,15 @@
+[SM2] 生成新私钥...
+[SM2] 密钥对已保存: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-tunnel\keys\sm2.txt
+✅ 已加载电商密钥对
+⚠️ 银行公钥文件不存在，尝试从bank_sm2_key.txt读取
+[SM2] 已读取私钥: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-tunnel\keys\sm2.txt
+[SM2] 密钥对已保存: C:\Users\lilili\Desktop\group-work\group_work-main\.local\week9\regression-final-tunnel\keys\sm2.txt
+[PASS] 正常 SM4-GCM 加密、SM2 封装和解封
+[PASS] Nonce 重放: Nonce replay
+[PASS] 密文篡改: Ciphertext authentication failed
+[PASS] 认证标签篡改: Ciphertext authentication failed
+[PASS] 时间窗过期: Invalid timestamp or outside time window
+[PASS] AAD 方法/路径绑定: Ciphertext authentication failed
+[PASS] Flask /api/v1/tunnel/echo 端到端封装响应
+[PASS] Flask 接口拒绝重复 Nonce
+第4周安全隧道验收：全部通过
