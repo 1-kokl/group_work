@@ -1,4 +1,3 @@
-
 # 敏感数据文件（自动添加，禁止GitHub同步）
 user_registry.txt
 # 敏感数据文件（自动添加，禁止GitHub同步）
@@ -18,8 +17,6 @@ __pycache__/
 **/node_modules/
 **/node_modules/.cache/
 
-# 前端构建产物；依赖锁文件应保留以便复现
-**/dist/
 
 # ===== 本次补充：敏感文件与生成目录（禁止上传 GitHub）=====
 # 数据库（含用户/银行数据）
