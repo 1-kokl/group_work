@@ -1,5 +1,0 @@
-# Install into .local/tools/python; do not replace the project's runtime packages.
-waitress==3.0.2
-bandit==1.9.4
-pip-audit==2.10.1
-defusedxml==0.7.1
