@@ -1,0 +1,50 @@
+@echo off
+chcp 65001 >nul
+echo ========================================
+echo   电商-银行支付系统启动脚本
+echo ========================================
+echo.
+
+REM 检查Python
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ❌ 未检测到Python，请先安装Python 3.8+
+    pause
+    exit /b 1
+)
+
+echo ✅ Python检测通过
+echo.
+
+REM 启动电商后端
+echo 🚀 正在启动电商后端服务...
+start "电商后端 - 端口5000" cmd /k "python run.py"
+timeout /t 3 >nul
+
+REM 启动模拟银行
+echo 🚀 正在启动模拟银行服务...
+start "模拟银行 - 端口8080" cmd /k "python mock_bank.py"
+timeout /t 3 >nul
+
+echo.
+echo ========================================
+echo ✅ 服务启动完成！
+echo ========================================
+echo.
+echo 📡 服务地址：
+echo    电商后端：http://localhost:5000
+echo    模拟银行：http://localhost:8080
+echo.
+echo 💡 提示：
+echo    1. 两个窗口会保持运行
+echo    2. 关闭窗口即可停止服务
+echo    3. 按任意键打开浏览器...
+echo ========================================
+echo.
+
+pause
+
+REM 自动打开浏览器
+start http://localhost:8081
+
+exit /b 0

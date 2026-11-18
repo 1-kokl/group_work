@@ -13,9 +13,13 @@ import sqlite3
 from datetime import datetime
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DB_PATH = os.path.join(_ROOT, "user.db")
 
 
 def _conn():
+    c = sqlite3.connect(DB_PATH)
+    c.row_factory = sqlite3.Row
+    return c
 
 
 def _ensure_table():
